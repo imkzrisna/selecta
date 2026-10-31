@@ -636,17 +636,13 @@ button:disabled {
      Dibuat lebih halus: magnitude transform lebih kecil, easing lebih
      landai, dan ada keyframe tengah supaya transisi mengalir, bukan
      "meledak" mendadak. */
-  animation: card-pop-in 0.38s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+  animation: card-pop-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 @keyframes card-pop-in {
   0% {
-    transform: translate(-3.5%, -3.5%) rotate(-1.5deg) scale(0.97);
-    opacity: 0.82;
-  }
-  60% {
-    transform: translate(-0.6%, -0.6%) rotate(-0.2deg) scale(0.995);
-    opacity: 0.97;
+    transform: translate(-7%, -7%) rotate(var(--enter-rot, -3deg)) scale(0.95);
+    opacity: 0.86;
   }
   100% {
     transform: translate(0, 0) rotate(0deg) scale(1);
@@ -2260,4 +2256,97 @@ button[title="Lihat semua shortcut keyboard"]:active:not(:disabled) {
    supaya tidak ada delay yang tidak perlu. */
 .preview-photo-inner.no-resize-anim {
   transition: none;
+}
+
+/* ---------- Serah-terima kartu belakang -> depan ---------- */
+
+/* Bingkai kartu depan "mengendap" dari warna bingkai kartu belakang. */
+@keyframes frame-settle {
+  from {
+    background-color: var(--border-strong);
+  }
+}
+.preview-photo-inner {
+  animation: frame-settle 0.38s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* Kartu belakang baru fade-in (hanya opacity, supaya tidak bentrok dengan
+   transform inline). */
+@keyframes stack-sheet-in {
+  from {
+    opacity: 0;
+  }
+}
+.stack-sheet {
+  animation: stack-sheet-in 0.38s ease backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack-sheet,
+  .preview-photo-inner {
+    animation: none !important;
+  }
+}
+
+/* ---------- Layar sorting: pas satu layar, tanpa scroll ----------
+   Tinggi preview-box tidak lagi dipatok (76vh / min 520px), tapi mengisi
+   sisa ruang setelah top-bar, nama file, dan tombol. Immersive dikecualikan
+   karena sudah punya aturan tinggi sendiri. */
+.sorting-screen:not(.immersive) {
+  justify-content: flex-start;
+  overflow: hidden;
+  padding: 20px 32px 16px;
+}
+
+.sorting-screen:not(.immersive) .top-bar {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.sorting-screen:not(.immersive) .sorting-layout {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.sorting-screen:not(.immersive) .sorting-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sorting-screen:not(.immersive) .compare-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sorting-screen:not(.immersive) .filmstrip {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sorting-screen:not(.immersive) .preview-box {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  margin-top: 44px; /* ruang untuk kartu tumpukan di belakang */
+}
+
+.sorting-screen:not(.immersive) .filename {
+  flex-shrink: 0;
+  margin-top: 10px;
+}
+
+.sorting-screen:not(.immersive) .controls {
+  flex-shrink: 0;
+  margin-top: 10px;
+}
+
+.sorting-screen:not(.immersive) .side-panel {
+  overflow-y: auto;
+  max-height: 100%;
 }

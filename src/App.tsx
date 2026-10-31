@@ -1048,6 +1048,12 @@ function App() {
 
   // stage === "sorting"
   const current = visibleQueue[0];
+  // Rasio kartu belakang sudah diketahui dari stackAspectRatios, jadi kartu
+  // yang naik jadi current langsung memakai bentuk yang sama (tanpa lompat).
+  const displayAspectRatio =
+    (current && stackAspectRatios[current.path]) || currentAspectRatio;
+  // Pose awal pop-in = pose kartu belakang depth 1 (rumus sama dengan stack-sheet).
+  const enterRot = current ? -3 + seededOffset(current.path, 1).rotate * 0.5 : -3;
   const frameNumber = totalLoaded - queue.length + 1;
   const swipeProgress = Math.max(-1, Math.min(1, dragX / SWIPE_THRESHOLD));
   const rotation = swipeProgress * 8;
@@ -1379,10 +1385,14 @@ function App() {
                             } as React.CSSProperties)
                           : {
                               transform: `translateX(${dragX}px) rotate(${rotation}deg)`,
+                              ["--enter-rot" as string]: `${enterRot}deg`,
                               zIndex: STACK_DEPTH + 1,
                             }
                       }
-                      onAnimationEnd={handleExitAnimationEnd}
+                      onAnimationEnd={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        handleExitAnimationEnd();
+                      }}
                     >
                       <div
                         className={
@@ -1393,8 +1403,8 @@ function App() {
                           (skipResizeAnim ? " no-resize-anim" : "")
                         }
                         style={
-                          currentAspectRatio
-                            ? { aspectRatio: `${currentAspectRatio}` }
+                          displayAspectRatio
+                            ? { aspectRatio: `${displayAspectRatio}` }
                             : undefined
                         }
                         onClick={() => {
@@ -1420,7 +1430,7 @@ function App() {
                           />
                         ) : (
                           <img
-                            src={previewSrc}
+                            src={previewCache.current.get(current?.path ?? "") ?? previewSrc}
                             alt={current?.name}
                             className="preview-img"
                             draggable={false}
