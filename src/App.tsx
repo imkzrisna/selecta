@@ -30,10 +30,10 @@ const VELOCITY_THRESHOLD = 0.55; // px/ms — a fast flick clears even under the
 const STACK_DEPTH = 2; // hanya 1 sheet yang tampil membelakangi current
 const HISTORY_LIMIT = 25;
 // Harus SAMA PERSIS dengan durasi @keyframes card-pop-in di App.css
-// (animation: card-pop-in 0.32s ...). Dipakai untuk menahan guard exit
+// (animation: card-pop-in 0.38s ...). Dipakai untuk menahan guard exit
 // selama kartu baru masih dalam proses animasi "masuk", supaya swipe
 // berikutnya tidak bisa dimulai sebelum kartu baru benar-benar settle.
-const CARD_POP_IN_MS = 320;
+const CARD_POP_IN_MS = 380;
 // Durasi animasi exit normal (single press) — NILAI TIDAK BERUBAH dari
 // sebelumnya (320ms kiri via exit-to-queue, 380ms kanan via
 // exit-to-selected di App.css). Dipusatkan di sini supaya HOLD_EXIT_MS
