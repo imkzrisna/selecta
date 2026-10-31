@@ -2350,3 +2350,62 @@ button[title="Lihat semua shortcut keyboard"]:active:not(:disabled) {
   overflow-y: auto;
   max-height: 100%;
 }
+
+/* ---------- Mode burst (← ditahan / beruntun) ----------
+   Hanya durasi yang diubah; nama animasi dan easing tetap. Sinkron dengan
+   BURST_EXIT_MS / BURST_POP_IN_MS di App.tsx. */
+.preview-card.is-burst {
+  animation-duration: 160ms;
+}
+.preview-card.exit-left.is-burst {
+  animation-duration: 150ms;
+}
+
+/* ---------- Pop up pilih folder tujuan ---------- */
+.dest-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 11, 8, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 300;
+  animation: lightbox-in 0.15s ease-out;
+}
+.dest-modal {
+  width: min(92vw, 440px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 26px 60px rgba(10, 10, 8, 0.35);
+  padding: 20px;
+  text-align: left;
+  animation: modal-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.dest-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.dest-modal-desc {
+  margin: 6px 0 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.dest-modal-pick {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.dest-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.dest-modal-actions button.primary {
+  margin-top: 0;
+  padding: 10px 20px;
+}

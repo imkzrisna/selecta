@@ -34,6 +34,13 @@ const HISTORY_LIMIT = 25;
 // selama kartu baru masih dalam proses animasi "masuk", supaya swipe
 // berikutnya tidak bisa dimulai sebelum kartu baru benar-benar settle.
 const CARD_POP_IN_MS = 380;
+// Mode burst (← ditahan / ditekan beruntun): animasi dipersingkat.
+// Nilai HARUS sama dengan .preview-card.is-burst di App.css (160ms)
+// dan .preview-card.exit-left.is-burst (150ms).
+const BURST_EXIT_MS = 150;
+const BURST_POP_IN_MS = 160;
+const BURST_WINDOW_MS = 300; // jeda maksimum antar tekanan ← agar dianggap burst
+const BURST_IDLE_MS = 500; // burst berakhir jika tidak ada trigger sepanjang ini
 // Durasi animasi exit normal (single press) — NILAI TIDAK BERUBAH dari
 // sebelumnya (320ms kiri via exit-to-queue, 380ms kanan via
 // exit-to-selected di App.css). Dipusatkan di sini supaya HOLD_EXIT_MS
@@ -125,6 +132,8 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [immersive, setImmersive] = useState(false);
+  // Pop up pilih folder tujuan: muncul setelah preview selesai dirender.
+  const [destPromptOpen, setDestPromptOpen] = useState(false);
 
   // drag state (not React state, to avoid re-render thrash while dragging)
   const [dragX, setDragX] = useState(0);
@@ -151,6 +160,13 @@ function App() {
   // (null) walau exit pertama sudah berjalan. Ref ini dibaca/ditulis
   // langsung tanpa menunggu render, jadi tidak ada celah race sama sekali.
   const exitInProgress = useRef(false);
+  // Token + flag supaya failsafe/animationend lama tidak menutup exit baru.
+  const exitToken = useRef(0);
+  const exitActive = useRef(false);
+  const lastLeftAt = useRef(0);
+  const burstRef = useRef(false);
+  const burstTimer = useRef<number | null>(null);
+  const [burst, setBurst] = useState(false);
   const [trayBump, setTrayBump] = useState(false);
 
   const previewCache = useRef<Map<string, string>>(new Map());
@@ -391,9 +407,11 @@ function App() {
       await prefetchAllImages(photos, (done, total) => {
         setPrepareProgress({ done, total });
       });
-      setStage("sorting");
+      setDestFolder("");
+      setDestPromptOpen(true);
     } catch (e) {
       pushToast(String(e));
+      setDestPromptOpen(false);
       setStage("setup");
     }
   };
@@ -687,6 +705,8 @@ function App() {
       durationMs?: number,
     ) => {
       exitInProgress.current = true;
+      exitActive.current = true;
+      const token = ++exitToken.current;
       dragging.current = false;
       setIsSettling(false);
       setExitStartX(startX);
@@ -697,6 +717,8 @@ function App() {
       // (heavy main-thread work, a video that failed to load, etc.), force
       // the exit to complete anyway so the buttons never stay stuck disabled.
       window.setTimeout(() => {
+        // Hanya tutup exit INI, dan hanya kalau belum ditutup animationend.
+        if (exitToken.current !== token || !exitActive.current) return;
         handleExitAnimationEndRef.current();
       }, failsafeMs);
     },
@@ -708,7 +730,7 @@ function App() {
   // perubahan urutan/logic pengecekan sama sekali, hanya dipindah ke
   // sini karena eksekusi animasinya sekarang di runExit.
   const triggerExit = useCallback(
-    (direction: "left" | "right", startX = 0, startRot = 0) => {
+    (direction: "left" | "right", startX = 0, startRot = 0, fast = false) => {
       // loadingPreview: jangan biarkan user swipe kartu yang gambarnya
       // sendiri belum selesai dimuat (baik via tombol maupun keyboard) —
       // mencegah kebingungan "kartu hilang" karena foto belum sempat
@@ -724,7 +746,16 @@ function App() {
         loadingPreview
       )
         return;
-      runExit(direction, startX, startRot);
+      if (fast) {
+        burstRef.current = true;
+        setBurst(true);
+      }
+      if (burstTimer.current) window.clearTimeout(burstTimer.current);
+      burstTimer.current = window.setTimeout(() => {
+        burstRef.current = false;
+        setBurst(false);
+      }, BURST_IDLE_MS);
+      runExit(direction, startX, startRot, fast ? BURST_EXIT_MS : undefined);
     },
     [queue.length, isProcessing, exitDir, loadingPreview, runExit],
   );
@@ -732,6 +763,8 @@ function App() {
   // --- Called once the CSS exit animation finishes: commit the real
   // state change (requeue or select-and-move) and reset for the next card. ---
   const handleExitAnimationEnd = useCallback(() => {
+    if (!exitActive.current) return; // bukan exit yang sedang berjalan
+    exitActive.current = false;
     const finishedDirection = exitDir;
     const photo = visibleQueue[0];
     setExitDir(null);
@@ -751,7 +784,7 @@ function App() {
     // memotong kartu yang masih dalam proses "muncul".
     window.setTimeout(() => {
       exitInProgress.current = false;
-    }, CARD_POP_IN_MS);
+    }, burstRef.current ? BURST_POP_IN_MS : CARD_POP_IN_MS);
   }, [exitDir, visibleQueue, handleReject, handleSelect]);
 
   useEffect(() => {
@@ -830,7 +863,10 @@ function App() {
 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        triggerExit("left");
+        const now = performance.now();
+        const isBurst = e.repeat || now - lastLeftAt.current < BURST_WINDOW_MS;
+        lastLeftAt.current = now;
+        triggerExit("left", 0, 0, isBurst);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         triggerExit("right");
@@ -890,6 +926,7 @@ function App() {
     setStage("setup");
     setSourceFolder("");
     setDestFolder("");
+    setDestPromptOpen(false);
     setQueue([]);
     setTotalLoaded(0);
     setSelectedCount(0);
@@ -919,7 +956,7 @@ function App() {
   );
 
   if (stage === "setup") {
-    const ready = sourceFolder && destFolder;
+    const ready = !!sourceFolder;
     return (
       <div className="container setup-screen">
         {ToastStack}
@@ -950,30 +987,10 @@ function App() {
             </span>
           </button>
 
-          <button
-            type="button"
-            className={`setup-row${destFolder ? " is-filled" : ""}`}
-            onClick={pickDestFolder}
-          >
-            <span className="setup-row-label">
-              <span className="setup-icon" aria-hidden="true">
-                <TrayGlyph />
-              </span>
-              <span className="setup-text">
-                <span className="setup-title">Folder tujuan</span>
-                <span className="path-label">
-                  {destFolder || "klik untuk memilih…"}
-                </span>
-              </span>
-            </span>
-            <span className="setup-chevron" aria-hidden="true">
-              {destFolder ? "✓" : "›"}
-            </span>
-          </button>
         </div>
 
         <button className="primary" disabled={!ready} onClick={startSorting}>
-          {ready ? "Mulai Sortir" : "Pilih kedua folder dulu"}
+          {ready ? "Mulai Sortir" : "Pilih folder sumber dulu"}
         </button>
 
         <div className="setup-keys">
@@ -1013,7 +1030,71 @@ function App() {
           <span className="stat-value">{prepareProgress.done}</span> dari{" "}
           {total} preview siap
         </p>
-        <p className="done-path mono">Mohon tunggu sebentar…</p>
+        <p className="done-path mono">
+          {destPromptOpen
+            ? "Preview siap. Pilih lokasi penyimpanan."
+            : "Mohon tunggu sebentar…"}
+        </p>
+
+        {destPromptOpen && (
+          <div className="dest-modal-backdrop" role="dialog" aria-modal="true">
+            <div className="dest-modal">
+              <div className="dest-modal-title">Simpan foto terpilih ke mana?</div>
+              <p className="dest-modal-desc">
+                Foto yang kamu pilih (→) akan dipindahkan ke folder ini.
+              </p>
+              <button
+                type="button"
+                className={`setup-row dest-modal-pick${destFolder ? " is-filled" : ""}`}
+                onClick={pickDestFolder}
+              >
+                <span className="setup-row-label">
+                  <span className="setup-icon" aria-hidden="true">
+                    <TrayGlyph />
+                  </span>
+                  <span className="setup-text">
+                    <span className="setup-title">Folder tujuan</span>
+                    <span className="path-label">
+                      {destFolder || "klik untuk memilih…"}
+                    </span>
+                  </span>
+                </span>
+                <span className="setup-chevron" aria-hidden="true">
+                  {destFolder ? "✓" : "›"}
+                </span>
+              </button>
+              <div className="dest-modal-actions">
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => {
+                    prefetchGeneration.current++;
+                    previewCache.current.clear();
+                    failedPreviews.current.clear();
+                    setQueue([]);
+                    setTotalLoaded(0);
+                    setPrepareProgress({ done: 0, total: 0 });
+                    setDestPromptOpen(false);
+                    setStage("setup");
+                  }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  className="primary dest-modal-go"
+                  disabled={!destFolder}
+                  onClick={() => {
+                    setDestPromptOpen(false);
+                    setStage("sorting");
+                  }}
+                >
+                  Mulai Sortir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1374,7 +1455,8 @@ function App() {
                         "preview-card" +
                         (isSettling ? " settling" : "") +
                         (exitDir === "left" ? " exit-left" : "") +
-                        (exitDir === "right" ? " exit-right" : "")
+                        (exitDir === "right" ? " exit-right" : "") +
+                        (burst ? " is-burst" : "")
                       }
                       style={
                         isExiting
