@@ -2409,3 +2409,89 @@ button[title="Lihat semua shortcut keyboard"]:active:not(:disabled) {
   margin-top: 0;
   padding: 10px 20px;
 }
+
+/* ---------- Mode besar foto (klik foto current, zoom pinch) ---------- */
+.zoom-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  background: rgba(12, 11, 8, 0.92);
+  animation: lightbox-in 0.15s ease-out;
+}
+.zoom-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: zoom-in;
+}
+.zoom-stage.is-zoomed {
+  cursor: grab;
+}
+.zoom-stage.is-panning {
+  cursor: grabbing;
+}
+.zoom-img {
+  max-width: 96%;
+  max-height: 92%;
+  object-fit: contain;
+  will-change: transform;
+  pointer-events: none;
+}
+.zoom-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 50%;
+  z-index: 2;
+}
+.zoom-toolbar {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 92vw;
+  z-index: 2;
+}
+.zoom-label {
+  min-width: 44px;
+  text-align: center;
+  color: var(--ink);
+}
+.zoom-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-strong);
+}
+@media (prefers-reduced-motion: reduce) {
+  .zoom-viewer {
+    animation: none !important;
+  }
+  .zoom-img {
+    transition: none !important;
+  }
+}

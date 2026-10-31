@@ -12,6 +12,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
 import PdfViewer from "./components/media/PdfViewer";
 import VideoViewer from "./components/media/VideoViewer";
+import ImageZoomViewer from "./components/media/ImageZoomViewer";
 
 type PhotoKind = "image" | "pdf" | "video";
 type PhotoEntry = {
@@ -134,6 +135,8 @@ function App() {
   const [immersive, setImmersive] = useState(false);
   // Pop up pilih folder tujuan: muncul setelah preview selesai dirender.
   const [destPromptOpen, setDestPromptOpen] = useState(false);
+  // Foto yang sedang dibuka di mode besar (zoom pinch).
+  const [zoomPhoto, setZoomPhoto] = useState<PhotoEntry | null>(null);
 
   // drag state (not React state, to avoid re-render thrash while dragging)
   const [dragX, setDragX] = useState(0);
@@ -146,6 +149,7 @@ function App() {
   const pointerId = useRef<number | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const rafId = useRef<number | null>(null);
+  const dragMoved = useRef(false);
 
   // exit animation: which direction the top print is currently leaving in.
   // "left"  -> not decided yet, slides back into the waiting pile
@@ -796,6 +800,7 @@ function App() {
   const onPointerDown = (e: React.PointerEvent) => {
     if (queue.length === 0 || isProcessing || exitDir) return;
     dragging.current = true;
+    dragMoved.current = false;
     dragStartX.current = e.clientX;
     dragStartT.current = performance.now();
     lastMoveX.current = e.clientX;
@@ -808,6 +813,7 @@ function App() {
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging.current) return;
     const x = e.clientX - dragStartX.current;
+    if (Math.abs(x) > 5) dragMoved.current = true;
     lastMoveX.current = e.clientX;
     lastMoveT.current = performance.now();
 
@@ -860,6 +866,7 @@ function App() {
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
       if (isTypingTarget) return;
+      if (zoomPhoto) return;
 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
@@ -916,6 +923,7 @@ function App() {
     visibleQueue,
     exitDir,
     shortcutsOpen,
+    zoomPhoto,
   ]);
 
   const finishSorting = () => {
@@ -1495,6 +1503,13 @@ function App() {
                             (current.kind === "pdf" || current.kind === "video")
                           ) {
                             setFullViewPhoto(current);
+                          } else if (
+                            current &&
+                            current.kind === "image" &&
+                            !dragMoved.current &&
+                            !exitInProgress.current
+                          ) {
+                            setZoomPhoto(current);
                           }
                         }}
                       >
@@ -1858,6 +1873,14 @@ function App() {
             <p className="photo-lightbox-caption mono">{fullViewPhoto.name}</p>
           </div>
         </div>
+      )}
+
+      {zoomPhoto && (
+        <ImageZoomViewer
+          src={previewCache.current.get(zoomPhoto.path) ?? previewSrc}
+          name={zoomPhoto.name}
+          onClose={() => setZoomPhoto(null)}
+        />
       )}
 
       {/* Lightbox: a larger look at a photo picked from the tray dropdown. */}
