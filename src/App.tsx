@@ -21,7 +21,7 @@ type PhotoEntry = {
   kind: PhotoKind;
 };
 
-type Stage = "setup" | "preparing" | "sorting" | "done";
+type Stage = "setup" | "preparing" | "sorting" | "review" | "done";
 type ExitDirection = "left" | "right" | null;
 type HistoryEntry = { type: "reject" | "select"; photo: PhotoEntry };
 type Toast = { id: number; message: string };
@@ -137,6 +137,9 @@ function App() {
   const [destPromptOpen, setDestPromptOpen] = useState(false);
   // Foto yang sedang dibuka di mode besar (zoom pinch).
   const [zoomPhoto, setZoomPhoto] = useState<PhotoEntry | null>(null);
+  // Halaman review: index foto yang sedang dicek + total yang sudah tersimpan.
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const savedTotal = useRef(0);
 
   // drag state (not React state, to avoid re-render thrash while dragging)
   const [dragX, setDragX] = useState(0);
@@ -534,31 +537,23 @@ function App() {
 
   // --- Select: foto di-move ke destFolder, keluar dari queue ---
   const handleSelect = useCallback(
-    async (photo: PhotoEntry) => {
-      setIsProcessing(true);
-      try {
-        await invoke("move_photo", {
-          source: photo.path,
-          destFolder: destFolder,
-        });
-        setSelectedCount((c) => c + 1);
-        setQueue((prev) => prev.filter((p) => p.path !== photo.path));
-        setSelectedPhotos((prev) => [photo, ...prev]);
-        recordHistory({ type: "select", photo });
-        setTrayBump(true);
-        window.setTimeout(() => setTrayBump(false), 260);
-      } catch (e) {
-        pushToast(String(e));
-      } finally {
-        setIsProcessing(false);
-      }
+    (photo: PhotoEntry) => {
+      // Hanya menandai; file BARU dipindah saat "Simpan" di halaman review.
+      setSelectedCount((c) => c + 1);
+      setQueue((prev) => prev.filter((p) => p.path !== photo.path));
+      setSelectedPhotos((prev) => [
+        photo,
+        ...prev.filter((p) => p.path !== photo.path),
+      ]);
+      recordHistory({ type: "select", photo });
+      setTrayBump(true);
+      window.setTimeout(() => setTrayBump(false), 260);
     },
-    [destFolder, recordHistory, pushToast],
+    [recordHistory],
   );
 
-  // --- Undo the last decision: reverses a reject (reorder) or a select
-  // (moves the file back to the source folder and restores it to front) ---
-  const handleUndo = useCallback(async () => {
+  // --- Undo keputusan terakhir (reject: urutan; select: batal tandai) ---
+  const handleUndo = useCallback(() => {
     const last = history.current[history.current.length - 1];
     if (!last || isProcessing || exitDir) return;
     history.current = history.current.slice(0, -1);
@@ -566,67 +561,32 @@ function App() {
     setUndoFlash(true);
     window.setTimeout(() => setUndoFlash(false), 320);
 
-    if (last.type === "reject") {
-      setQueue((prev) => [
-        last.photo,
-        ...prev.filter((p) => p.path !== last.photo.path),
-      ]);
-      return;
-    }
-
-    // last.type === "select"
-    setIsProcessing(true);
-    try {
-      await invoke("move_photo", {
-        source: `${destFolder}/${last.photo.name}`.replace(/\/+/g, "/"),
-        destFolder: sourceFolder,
-      });
+    if (last.type === "select") {
       setSelectedCount((c) => Math.max(0, c - 1));
       setSelectedPhotos((prev) =>
         prev.filter((p) => p.path !== last.photo.path),
       );
-      setQueue((prev) => [last.photo, ...prev]);
-    } catch (e) {
-      pushToast(`Gagal membatalkan: ${String(e)}`);
-      // put the history entry back since the undo didn't actually happen
-      history.current = [...history.current, last];
-      setCanUndo(true);
-    } finally {
-      setIsProcessing(false);
     }
-  }, [destFolder, sourceFolder, isProcessing, exitDir, pushToast]);
-  // --- Remove a photo from the selected tray: moves it back from
-  // destFolder to sourceFolder and puts it back at the front of the
-  // queue, regardless of whether it was the most recent selection. ---
+    setQueue((prev) => [
+      last.photo,
+      ...prev.filter((p) => p.path !== last.photo.path),
+    ]);
+  }, [isProcessing, exitDir]);
+
+  // --- Keluarkan foto dari terpilih: kembali ke depan antrian ---
   const handleRemoveSelected = useCallback(
-    async (photo: PhotoEntry) => {
+    (photo: PhotoEntry) => {
       if (isProcessing) return;
-      setIsProcessing(true);
-      try {
-        await invoke("move_photo", {
-          source: `${destFolder}/${photo.name}`.replace(/\/+/g, "/"),
-          destFolder: sourceFolder,
-        });
-        setSelectedCount((c) => Math.max(0, c - 1));
-        setSelectedPhotos((prev) => prev.filter((p) => p.path !== photo.path));
-        setQueue((prev) => [
-          photo,
-          ...prev.filter((p) => p.path !== photo.path),
-        ]);
-        // Drop the matching "select" entry from history so undo doesn't
-        // later try to reverse a selection that's already been removed.
-        history.current = history.current.filter(
-          (h) => !(h.type === "select" && h.photo.path === photo.path),
-        );
-        setCanUndo(history.current.length > 0);
-        if (viewingPhoto?.path === photo.path) setViewingPhoto(null);
-      } catch (e) {
-        pushToast(`Gagal menghapus: ${String(e)}`);
-      } finally {
-        setIsProcessing(false);
-      }
+      setSelectedCount((c) => Math.max(0, c - 1));
+      setSelectedPhotos((prev) => prev.filter((p) => p.path !== photo.path));
+      setQueue((prev) => [photo, ...prev.filter((p) => p.path !== photo.path)]);
+      history.current = history.current.filter(
+        (h) => !(h.type === "select" && h.photo.path === photo.path),
+      );
+      setCanUndo(history.current.length > 0);
+      if (viewingPhoto?.path === photo.path) setViewingPhoto(null);
     },
-    [destFolder, sourceFolder, isProcessing, viewingPhoto, pushToast],
+    [isProcessing, viewingPhoto],
   );
   // --- Fullscreen / immersive mode: hides the surrounding chrome and lets
   // the print fill the window. Also asks the OS window to go fullscreen
@@ -927,14 +887,76 @@ function App() {
   ]);
 
   const finishSorting = () => {
-    setStage("done");
+    if (selectedPhotos.length > 0) {
+      setReviewIndex(0);
+      setStage("review");
+    } else {
+      setStage("done");
+    }
   };
+
+  // --- Simpan: pindahkan semua foto terpilih ke folder tujuan ---
+  const saveSelected = async () => {
+    if (isProcessing || selectedPhotos.length === 0) return;
+    setIsProcessing(true);
+    const failed: PhotoEntry[] = [];
+    let moved = 0;
+    for (const p of [...selectedPhotos].reverse()) {
+      try {
+        await invoke("move_photo", { source: p.path, destFolder });
+        moved += 1;
+      } catch (e) {
+        console.warn("Gagal memindahkan:", p.name, e);
+        failed.push(p);
+      }
+    }
+    savedTotal.current += moved;
+    history.current = [];
+    setCanUndo(false);
+    setIsProcessing(false);
+    if (failed.length > 0) {
+      setSelectedPhotos(failed);
+      setSelectedCount(failed.length);
+      setReviewIndex(0);
+      pushToast(`${failed.length} file gagal dipindahkan. Coba Simpan lagi.`);
+    } else {
+      setSelectedPhotos([]);
+      setSelectedCount(savedTotal.current);
+      setStage("done");
+    }
+  };
+
+  // --- Keyboard halaman review: ← → navigasi, Backspace keluarkan ---
+  useEffect(() => {
+    if (stage !== "review") return;
+    const h = (e: KeyboardEvent) => {
+      if (isProcessing) return;
+      const list = [...selectedPhotos].reverse();
+      if (list.length === 0) return;
+      const idx = Math.min(reviewIndex, list.length - 1);
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setReviewIndex(Math.min(idx + 1, list.length - 1));
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setReviewIndex(Math.max(idx - 1, 0));
+      } else if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        handleRemoveSelected(list[idx]);
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [stage, isProcessing, selectedPhotos, reviewIndex, handleRemoveSelected]);
 
   const resetApp = () => {
     setStage("setup");
     setSourceFolder("");
     setDestFolder("");
     setDestPromptOpen(false);
+    savedTotal.current = 0;
+    setReviewIndex(0);
+    setIsProcessing(false);
     setQueue([]);
     setTotalLoaded(0);
     setSelectedCount(0);
@@ -1103,6 +1125,164 @@ function App() {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (stage === "review") {
+    const list = [...selectedPhotos].reverse();
+    const idx = Math.min(reviewIndex, Math.max(0, list.length - 1));
+    const cur = list[idx];
+    const behind = list[idx + 1];
+    const setRatio = (r: number) => {
+      if (!cur) return;
+      setStackAspectRatios((prev) =>
+        prev[cur.path] === r ? prev : { ...prev, [cur.path]: r },
+      );
+    };
+    const ratioOf = (path: string) => stackAspectRatios[path] ?? 3 / 4;
+    return (
+      <div className="container review-screen">
+        {ToastStack}
+        <div className="top-bar">
+          <button
+            className="ghost-btn"
+            onClick={() => setStage("sorting")}
+            disabled={isProcessing}
+          >
+            ← Kembali
+          </button>
+          <span className="top-bar-mid">
+            Periksa <span className="stat-value">{list.length}</span> foto
+            terpilih{cur ? ` · ${idx + 1} / ${list.length}` : ""}
+          </span>
+          <div className="top-bar-actions">
+            <button
+              className="primary review-save"
+              onClick={saveSelected}
+              disabled={isProcessing || list.length === 0}
+            >
+              {isProcessing ? "Memindahkan…" : `Simpan ${list.length} foto`}
+            </button>
+          </div>
+        </div>
+
+        <div className="review-stage">
+          <div className="preview-box review-box">
+            {behind && (
+              <div
+                key={behind.path}
+                className="stack-sheet"
+                style={{
+                  transform: "translate(-7%, -7%) rotate(-3deg) scale(0.95)",
+                  transformOrigin: "80% 80%",
+                  zIndex: 1,
+                  opacity: 0.86,
+                  ["--depth-blur" as string]: "0.3px",
+                  ["--depth-shadow-y" as string]: "4px",
+                  ["--depth-shadow-blur" as string]: "12px",
+                }}
+                aria-hidden="true"
+              >
+                <div
+                  className="stack-sheet-inner"
+                  style={{ aspectRatio: `${ratioOf(behind.path)}` }}
+                >
+                  {behind.kind === "image" &&
+                    previewCache.current.get(behind.path) && (
+                      <img
+                        src={previewCache.current.get(behind.path)}
+                        alt=""
+                        className="stack-sheet-thumb is-loaded"
+                        draggable={false}
+                        onLoad={(e) => {
+                          const img = e.currentTarget;
+                          if (img.naturalWidth && img.naturalHeight) {
+                            const r = img.naturalWidth / img.naturalHeight;
+                            setStackAspectRatios((prev) =>
+                              prev[behind.path] === r
+                                ? prev
+                                : { ...prev, [behind.path]: r },
+                            );
+                          }
+                        }}
+                      />
+                    )}
+                </div>
+              </div>
+            )}
+
+            {cur ? (
+              <div key={cur.path} className="preview-card" style={{ zIndex: 2 }}>
+                <div
+                  className="preview-photo-inner no-resize-anim"
+                  style={{ aspectRatio: `${ratioOf(cur.path)}` }}
+                >
+                  {cur.kind === "pdf" ? (
+                    <PdfViewer path={cur.path} compact onDimensionsChange={setRatio} />
+                  ) : cur.kind === "video" ? (
+                    <VideoViewer path={cur.path} compact onDimensionsChange={setRatio} />
+                  ) : previewCache.current.get(cur.path) ? (
+                    <img
+                      src={previewCache.current.get(cur.path)}
+                      alt={cur.name}
+                      className="preview-img"
+                      draggable={false}
+                      onLoad={(e) => {
+                        const img = e.currentTarget;
+                        if (img.naturalWidth && img.naturalHeight) {
+                          setRatio(img.naturalWidth / img.naturalHeight);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="mono photo-lightbox-fallback">
+                      Preview tidak tersedia
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="preview-placeholder empty-state" style={{ zIndex: 2 }}>
+                <span className="empty-title">Tidak ada foto terpilih</span>
+                <span className="hint-inline">
+                  Klik &quot;Kembali&quot; untuk melanjutkan sortir.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {cur && <p className="filename mono">{cur.name}</p>}
+          <div className="controls">
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => setReviewIndex(Math.max(idx - 1, 0))}
+              disabled={idx === 0}
+            >
+              ‹ Sebelumnya
+            </button>
+            <button
+              type="button"
+              className="photo-lightbox-remove"
+              onClick={() => cur && handleRemoveSelected(cur)}
+              disabled={!cur || isProcessing}
+            >
+              Keluarkan dari terpilih
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => setReviewIndex(Math.min(idx + 1, list.length - 1))}
+              disabled={idx >= list.length - 1}
+            >
+              Berikutnya ›
+            </button>
+          </div>
+          <p className="hint mono">
+            <kbd>←</kbd> <kbd>→</kbd> navigasi · <kbd>⌫</kbd> keluarkan
+          </p>
+        </div>
       </div>
     );
   }
