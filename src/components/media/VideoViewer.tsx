@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
 type VideoViewerProps = {
   path: string;
@@ -14,9 +13,7 @@ function fileNameFromPath(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-// Cache sederhana per-path supaya thumbnail tidak digenerate ulang tiap
-// kali kartu video yang sama kembali jadi "current" (misalnya setelah
-// di-skip lalu muncul lagi di queue).
+// Cache sederhana per-path supaya thumbnail tidak digenerate ulang.
 const thumbCache = new Map<string, string>();
 
 export default function VideoViewer({ path, compact = false, onDimensionsChange }: VideoViewerProps) {
@@ -47,11 +44,15 @@ export default function VideoViewer({ path, compact = false, onDimensionsChange 
         if (cancelled) return;
         console.warn("Gagal membuat thumbnail video:", e);
         setFailed(true);
+        // Tanpa thumbnail tidak ada rasio asli -> pakai 16:9 supaya kartu
+        // tidak mengecil.
+        onDimensionsChange?.(16 / 9);
       });
 
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, compact]);
 
   if (compact) {
@@ -71,16 +72,18 @@ export default function VideoViewer({ path, compact = false, onDimensionsChange 
             }}
           />
         ) : failed ? (
-          <div className="video-thumb-fallback mono">
-            <span className="video-thumb-fallback-icon" aria-hidden="true">
-              ▶
-            </span>
-            <span className="video-thumb-fallback-name">
-              {fileNameFromPath(path)}
-            </span>
-          </div>
+          <div className="video-thumb-fallback" />
         ) : (
           <div className="video-thumb-placeholder mono">Memuat thumbnail…</div>
+        )}
+        {(thumb || failed) && (
+          <>
+            <span className="video-thumb-badge mono">VIDEO</span>
+            <span className="video-thumb-play" aria-hidden="true">
+              ▶
+            </span>
+            <span className="video-thumb-name mono">{fileNameFromPath(path)}</span>
+          </>
         )}
       </div>
     );

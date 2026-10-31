@@ -311,6 +311,20 @@ fn get_preview(path: String, app: AppHandle, is_prefetch: Option<bool>) -> Resul
     Ok(format!("data:image/jpeg;base64,{}", b64))
 }
 
+// App GUI macOS tidak mewarisi PATH shell, jadi cari ffmpeg di lokasi umum.
+fn ffmpeg_bin() -> String {
+    for c in [
+        "/opt/homebrew/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/usr/bin/ffmpeg",
+    ] {
+        if Path::new(c).exists() {
+            return c.to_string();
+        }
+    }
+    "ffmpeg".to_string()
+}
+
 // 2b. Generate thumbnail JPG dari video pakai ffmpeg (ambil 1 frame).
 //     Beda dari get_preview: ini khusus video, dan mengembalikan error
 //     yang jelas kalau ffmpeg tidak ada di sistem, supaya frontend bisa
@@ -339,12 +353,13 @@ fn get_video_thumbnail(path: String) -> Result<String, String> {
 
     // Ambil 1 frame di detik ke-1 (fallback ke frame pertama kalau video
     // lebih pendek dari itu — ffmpeg otomatis clamp ke durasi video).
-    let output = Command::new("ffmpeg")
+    let output = Command::new(ffmpeg_bin())
         .args([
             "-y",
             "-ss", "1",
             "-i", path.as_str(),
             "-frames:v", "1",
+            "-vf", "scale='min(1280,iw)':-2",
             "-q:v", "3",
             out_path.to_str().unwrap(),
         ])

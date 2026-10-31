@@ -935,6 +935,12 @@ function App() {
     if (stage !== "review") return;
     const h = (e: KeyboardEvent) => {
       if (isProcessing) return;
+      // Esc: kembali ke sorting (sama seperti tombol "Kembali").
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setStage("sorting");
+        return;
+      }
       const list = [...selectedPhotos].reverse();
       if (list.length === 0) return;
       const idx = Math.min(reviewIndex, list.length - 1);
@@ -1284,7 +1290,7 @@ function App() {
             </button>
           </div>
           <p className="hint mono">
-            <kbd>←</kbd> <kbd>→</kbd> navigasi · <kbd>⌫</kbd> keluarkan
+            <kbd>←</kbd> <kbd>→</kbd> navigasi · <kbd>⌫</kbd> keluarkan · <kbd>Esc</kbd> kembali
           </p>
         </div>
       </div>
@@ -2022,11 +2028,11 @@ function App() {
           aria-modal="true"
         >
           <div
-            className="photo-lightbox-card pdf-lightbox-card"
+            className={`photo-lightbox-card pdf-lightbox-card${fullViewPhoto.kind === "video" ? " video-lightbox-card" : ""}`}
             onClick={(e) => e.stopPropagation()}
             style={
-              fullViewAspectRatio
-                ? ({ "--full-aspect": `` } as React.CSSProperties)
+              fullViewPhoto.kind === "video" && fullViewAspectRatio
+                ? ({ "--full-aspect": `${fullViewAspectRatio}` } as React.CSSProperties)
                 : undefined
             }
           >
