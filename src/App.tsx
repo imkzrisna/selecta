@@ -1573,12 +1573,23 @@ function App() {
                       >
                         <div
                           className="stack-sheet-inner"
+                          data-kind={p.kind}
                           style={
                             stackAspectRatios[p.path]
                               ? { aspectRatio: `${stackAspectRatios[p.path]}` }
                               : undefined
                           }
                         >
+                          {p.kind !== "image" && (
+                            <div className="stack-sheet-kind mono">
+                              <span className="stack-sheet-kind-label">
+                                {p.kind === "pdf" ? "PDF" : "VIDEO"}
+                              </span>
+                              <span className="stack-sheet-kind-name">
+                                {p.name}
+                              </span>
+                            </div>
+                          )}
                           {!thumb &&
                             p.kind === "image" &&
                             !failedPreviews.current.has(p.path) && (

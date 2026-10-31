@@ -264,7 +264,11 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
         <div className="pdf-viewer-loading mono">Memuat PDF…</div>
       ) : (
         <>
-          <div className={compact ? "pdf-toolbar mono" : "pdf-full-toolbar mono"}>
+          <div
+            className={compact ? "pdf-toolbar mono" : "pdf-full-toolbar mono"}
+            onClick={compact ? (e) => e.stopPropagation() : undefined}
+            onPointerDown={compact ? (e) => e.stopPropagation() : undefined}
+          >
             <span className="pdf-page-label">{numPages} halaman</span>
             <span className="pdf-toolbar-sep" />
             <button type="button" className="ghost-btn" onClick={zoomOut}>
