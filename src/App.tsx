@@ -171,6 +171,7 @@ function App() {
   const exitToken = useRef(0);
   const exitActive = useRef(false);
   const lastLeftAt = useRef(0);
+  const lastRightAt = useRef(0);
   const burstRef = useRef(false);
   const burstTimer = useRef<number | null>(null);
   const [burst, setBurst] = useState(false);
@@ -836,7 +837,10 @@ function App() {
         triggerExit("left", 0, 0, isBurst);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        triggerExit("right");
+        const nowR = performance.now();
+        const isBurstR = e.repeat || nowR - lastRightAt.current < BURST_WINDOW_MS;
+        lastRightAt.current = nowR;
+        triggerExit("right", 0, 0, isBurstR);
       } else if (e.key === "ArrowDown" && cmdOrCtrl) {
         e.preventDefault();
         if (!compareMode && visibleQueue[0] && exitDir === null) {

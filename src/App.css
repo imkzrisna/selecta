@@ -808,21 +808,20 @@ button:disabled {
 }
 
 @keyframes exit-to-selected {
-  0% {
+  from {
     transform: translate(var(--start-x, 0px), 0) rotate(var(--start-rot, 0deg))
       scale(1);
+  }
+  to {
+    transform: translate(135%, -14%) rotate(9deg) scale(0.62);
+  }
+}
+
+@keyframes exit-to-selected-fade {
+  from {
     opacity: 1;
   }
-  22% {
-    transform: translate(calc(var(--start-x, 0px) + 40px), -10px)
-      rotate(calc(var(--start-rot, 0deg) + 3deg)) scale(1.01);
-    opacity: 1;
-  }
-  60% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(148%, -20%) rotate(9deg) scale(0.5);
+  to {
     opacity: 0;
   }
 }
@@ -838,7 +837,9 @@ button:disabled {
 }
 
 .preview-card.exit-right {
-  animation: exit-to-selected 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation:
+    exit-to-selected 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards,
+    exit-to-selected-fade 190ms linear 190ms forwards;
   z-index: 30;
   pointer-events: none;
 }
@@ -2539,4 +2540,10 @@ button[title="Lihat semua shortcut keyboard"]:active:not(:disabled) {
 button.review-save {
   margin-top: 0;
   padding: 9px 18px;
+}
+
+/* Burst kanan: sinkron dengan BURST_EXIT_MS (150ms) di App.tsx. */
+.preview-card.exit-right.is-burst {
+  animation-duration: 150ms, 80ms;
+  animation-delay: 0s, 70ms;
 }
