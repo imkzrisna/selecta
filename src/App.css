@@ -2716,3 +2716,26 @@ button.review-save {
     transition: none !important;
   }
 }
+
+/* ---------- PDF kartu queue: ukuran kartu TETAP, zoom hanya isi halaman ----------
+   Sebelumnya lebar kartu (width:auto) ikut ukuran canvas, jadi zoom-out
+   mengecilkan seluruh kartu. Sekarang tinggi kartu diambil dari ruang
+   yang tersedia, lebar dari aspect-ratio, dan viewer menjadi lapisan
+   absolut di dalamnya. */
+.preview-photo-inner:has(> .pdf-viewer-compact) {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 0.707 / 1; /* fallback A4 sebelum rasio asli terbaca */
+}
+.preview-photo-inner:has(> .pdf-viewer-compact) > .pdf-viewer-compact {
+  position: absolute;
+  inset: 8px;
+  width: auto;
+  height: auto;
+}
+.pdf-viewer-compact .pdf-compact-scroll {
+  justify-content: flex-start;
+}
