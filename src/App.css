@@ -2772,3 +2772,20 @@ button.review-save {
   overflow: auto;
   overscroll-behavior: contain;
 }
+
+/* ---------- PDF: pengalaman baca ---------- */
+.pdf-page-label {
+  min-width: 52px;
+  white-space: nowrap;
+}
+.pdf-viewer-compact .pdf-toolbar,
+.pdf-full-toolbar {
+  white-space: nowrap;
+}
+.pdf-full-scroll {
+  cursor: grab;
+  scrollbar-width: thin;
+}
+.pdf-full-scroll .pdf-full-page {
+  flex-shrink: 0;
+}

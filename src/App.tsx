@@ -827,6 +827,15 @@ function App() {
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
       if (isTypingTarget) return;
+      // Viewer PDF/video penuh terbuka: shortcut sorting dimatikan, Esc menutup.
+      if (fullViewPhoto) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          (document.activeElement as HTMLElement | null)?.blur();
+          setFullViewPhoto(null);
+        }
+        return;
+      }
       if (zoomPhoto) return;
 
       if (e.key === "ArrowLeft") {
@@ -888,6 +897,7 @@ function App() {
     exitDir,
     shortcutsOpen,
     zoomPhoto,
+    fullViewPhoto,
   ]);
 
   const finishSorting = () => {
