@@ -150,9 +150,7 @@ function App() {
   // Nama baru (tanpa ekstensi) per path, diterapkan saat Simpan.
   const [renames, setRenames] = useState<Record<string, string>>({});
   // Pengaturan export.
-  const [exportMode, setExportMode] = useState<"jpg" | "original" | "zip">("original");
-  const [exportNewFolder, setExportNewFolder] = useState(false);
-  const [exportFolderName, setExportFolderName] = useState("");
+  const [exportMode, setExportMode] = useState<"original" | "zip">("original");
   const [exportZipName, setExportZipName] = useState("Selecta-export");
   const [exportOutput, setExportOutput] = useState("");
 
@@ -328,6 +326,7 @@ function App() {
       directory: true,
       multiple: false,
       title: "Pilih folder tujuan untuk foto terpilih",
+      canCreateDirectories: true,
     });
     if (selected && typeof selected === "string") {
       setDestFolder(selected);
@@ -925,11 +924,6 @@ function App() {
   // --- Simpan: pindahkan semua foto terpilih ke folder tujuan ---
   const exportFiles = async () => {
     if (isProcessing || selectedPhotos.length === 0 || !destFolder) return;
-    const folderName = exportNewFolder ? cleanBase(exportFolderName) : "";
-    if (exportNewFolder && !folderName) {
-      pushToast("Isi nama folder baru dulu.");
-      return;
-    }
     setIsProcessing(true);
     try {
       const items = [...selectedPhotos].reverse().map((p) => {
@@ -942,7 +936,7 @@ function App() {
         {
           items,
           destFolder,
-          newFolder: folderName || null,
+          newFolder: null,
           mode: exportMode,
           zipName: exportMode === "zip" ? cleanBase(exportZipName) || null : null,
         },
@@ -1335,15 +1329,8 @@ function App() {
 
   if (stage === "export") {
     const count = selectedPhotos.length;
-    const folderName = cleanBase(exportFolderName);
-    const canGo =
-      !!destFolder && (!exportNewFolder || !!folderName) && count > 0 && !isProcessing;
+    const canGo = !!destFolder && count > 0 && !isProcessing;
     const modes = [
-      {
-        value: "jpg",
-        title: "Foto biasa (JPG)",
-        desc: "HEIC, RAW, dan PNG dikonversi ke JPG. PDF dan video disalin apa adanya.",
-      },
       {
         value: "original",
         title: "Format asli",
@@ -1384,24 +1371,6 @@ function App() {
               {destFolder ? "✓" : "›"}
             </span>
           </button>
-          <label className="export-check mono">
-            <input
-              type="checkbox"
-              checked={exportNewFolder}
-              onChange={(e) => setExportNewFolder(e.target.checked)}
-            />
-            Buat folder baru di dalam folder tujuan
-          </label>
-          {exportNewFolder && (
-            <input
-              className="rename-input export-input"
-              type="text"
-              placeholder="Nama folder baru"
-              spellCheck={false}
-              value={exportFolderName}
-              onChange={(e) => setExportFolderName(e.target.value)}
-            />
-          )}
         </div>
 
         <div className="export-section">
