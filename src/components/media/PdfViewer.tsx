@@ -238,6 +238,16 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
     }
   }, []);
 
+  // ---- Animasi Fit ----
+  const animRef = useRef<number | null>(null);
+  const cancelAnim = useCallback(() => {
+    if (animRef.current !== null) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+  }, []);
+  useEffect(() => cancelAnim, [cancelAnim, path]);
+
   // ---- Zoom ke skala absolut, berpusat di kursor/jari ----
   const zoomToScale = useCallback(
     (clientX: number, clientY: number, targetScale: number) => {
@@ -250,6 +260,7 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
       const nextScale = clamp(targetScale, MIN_SCALE, MAX_SCALE);
       if (nextScale === prevScale) return;
       const ratio = nextScale / prevScale;
+      cancelAnim();
       userZoomed.current = true;
       setScale(nextScale);
       scaleRef.current = nextScale;
@@ -262,6 +273,7 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
   );
 
   const zoomBy = useCallback((delta: number) => {
+    cancelAnim();
     userZoomed.current = true;
     setScale((s) => {
       const n = clamp(s + delta, MIN_SCALE, MAX_SCALE);
@@ -272,13 +284,58 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
 
   const resetFit = useCallback(() => {
     userZoomed.current = false;
-    const fit = computeFit();
-    fitScaleRef.current = fit;
-    setScale(fit);
-    scaleRef.current = fit;
+    cancelAnim();
+    const target = computeFit();
+    fitScaleRef.current = target;
     const el = containerScrollRef.current;
-    if (el) el.scrollLeft = 0;
-  }, [computeFit]);
+    const from = scaleRef.current;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    if (!el || reduce || from <= 0) {
+      setScale(target);
+      scaleRef.current = target;
+      if (el) {
+        el.scrollLeft = 0;
+        el.scrollTop = 0;
+      }
+      return;
+    }
+
+    // Ukuran CSS awal tiap canvas, diskalakan tiap frame (tanpa render ulang
+    // bitmap). Render tajam dilakukan otomatis setelah scale final di-set.
+    const items = Array.from(pageCanvasRefs.current.values()).map((c) => ({
+      c,
+      w: parseFloat(c.style.width) || c.clientWidth,
+      h: parseFloat(c.style.height) || c.clientHeight,
+    }));
+    const l0 = el.scrollLeft;
+    const t0 = el.scrollTop;
+    const start = performance.now();
+    const DURATION = 320;
+
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / DURATION);
+      const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      const s = from + (target - from) * e;
+      const k = s / from;
+      for (const it of items) {
+        it.c.style.width = `${it.w * k}px`;
+        it.c.style.height = `${it.h * k}px`;
+      }
+      el.scrollLeft = l0 * (1 - e);
+      el.scrollTop = t0 * (1 - e);
+      scaleRef.current = s;
+      setScale(s);
+      if (p < 1) {
+        animRef.current = requestAnimationFrame(step);
+      } else {
+        animRef.current = null;
+        scaleRef.current = target;
+        setScale(target);
+      }
+    };
+    animRef.current = requestAnimationFrame(step);
+  }, [computeFit, cancelAnim]);
 
   // Pinch trackpad = wheel + ctrlKey. Listener native non-passive supaya
   // preventDefault benar-benar mencegah zoom halaman.
