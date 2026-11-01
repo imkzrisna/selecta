@@ -20,6 +20,8 @@ const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
 const FULL_FIT_CAP = 1.6;
 const ZOOM_STEP = 0.2;
+// Zoom awal saat viewer penuh dibuka (1.3 = 130%).
+const FULL_OPEN_SCALE = 1.3;
 
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, v));
@@ -94,6 +96,11 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
     const avail = Math.max(120, el.clientWidth - (compact ? 28 : 56));
     const cap = compact ? MAX_SCALE : FULL_FIT_CAP;
     const byWidth = avail / base.w;
+    if (!compact && el.clientHeight > 80) {
+      // Viewer penuh: halaman pertama harus utuh (lebar DAN tinggi).
+      const availH = Math.max(120, el.clientHeight - 36);
+      return clamp(Math.min(byWidth, availH / base.h), MIN_SCALE, cap);
+    }
     if (compact && el.clientHeight > 80) {
       // Kartu queue: seluruh halaman pertama harus terlihat (lebar DAN tinggi).
       const availH = Math.max(120, el.clientHeight - 24);
@@ -116,8 +123,13 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
         onDimensionsChange?.(vp.width / vp.height);
         const fit = computeFit();
         fitScaleRef.current = fit;
-        setScale(fit);
-        scaleRef.current = fit;
+        // Viewer penuh: buka di 130% dan tandai sebagai zoom manual agar
+        // ResizeObserver tidak menimpanya. Tombol Fit / tombol 0 tetap
+        // kembali ke pas halaman pertama.
+        const initial = compact ? fit : FULL_OPEN_SCALE;
+        if (!compact) userZoomed.current = true;
+        setScale(initial);
+        scaleRef.current = initial;
         setFitted(true);
       })
       .catch((e) => {
