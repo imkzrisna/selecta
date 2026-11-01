@@ -86,6 +86,14 @@ function cacheSet(
 
 let toastId = 0;
 
+// Pisahkan "nama.ext" menjadi base + ext (ext termasuk titik, atau "").
+function splitName(name: string) {
+  const i = name.lastIndexOf(".");
+  if (i <= 0) return { base: name, ext: "" };
+  return { base: name.slice(0, i), ext: name.slice(i) };
+}
+const cleanBase = (v: string) => v.replace(/[\/\\:]/g, "-").trim();
+
 // Spinner yang baru dirender setelah delay (default 500ms) sejak elemen
 // ini dimount — mencegah "flash" spinner untuk loading yang cepat selesai.
 // Kalau parent-nya unmount komponen ini sebelum delay habis (mis. loading
@@ -140,6 +148,8 @@ function App() {
   // Halaman review: index foto yang sedang dicek + total yang sudah tersimpan.
   const [reviewIndex, setReviewIndex] = useState(0);
   const savedTotal = useRef(0);
+  // Nama baru (tanpa ekstensi) per path, diterapkan saat Simpan.
+  const [renames, setRenames] = useState<Record<string, string>>({});
 
   // drag state (not React state, to avoid re-render thrash while dragging)
   const [dragX, setDragX] = useState(0);
@@ -917,7 +927,14 @@ function App() {
     let moved = 0;
     for (const p of [...selectedPhotos].reverse()) {
       try {
-        await invoke("move_photo", { source: p.path, destFolder });
+        const r = renames[p.path];
+        const base = r === undefined ? "" : cleanBase(r);
+        const full = base ? base + splitName(p.name).ext : "";
+        await invoke("move_photo", {
+          source: p.path,
+          destFolder,
+          newName: full && full !== p.name ? full : null,
+        });
         moved += 1;
       } catch (e) {
         console.warn("Gagal memindahkan:", p.name, e);
@@ -935,6 +952,7 @@ function App() {
       pushToast(`${failed.length} file gagal dipindahkan. Coba Simpan lagi.`);
     } else {
       setSelectedPhotos([]);
+      setRenames({});
       setSelectedCount(savedTotal.current);
       setStage("done");
     }
@@ -944,6 +962,8 @@ function App() {
   useEffect(() => {
     if (stage !== "review") return;
     const h = (e: KeyboardEvent) => {
+      const tg = e.target as HTMLElement | null;
+      if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA")) return;
       if (isProcessing) return;
       // Esc: kembali ke sorting (sama seperti tombol "Kembali").
       if (e.key === "Escape") {
@@ -975,6 +995,7 @@ function App() {
     setDestFolder("");
     setDestPromptOpen(false);
     savedTotal.current = 0;
+    setRenames({});
     setReviewIndex(0);
     setIsProcessing(false);
     setQueue([]);
@@ -1272,7 +1293,67 @@ function App() {
             )}
           </div>
 
-          {cur && <p className="filename mono">{cur.name}</p>}
+          {cur && (
+            <div className="rename-row mono">
+              <label className="rename-label" htmlFor="rename-input">
+                Nama file
+              </label>
+              <div className="rename-field">
+                <input
+                  id="rename-input"
+                  key={cur.path}
+                  className="rename-input"
+                  type="text"
+                  spellCheck={false}
+                  disabled={isProcessing}
+                  value={renames[cur.path] ?? splitName(cur.name).base}
+                  onChange={(e) =>
+                    setRenames((prev) => ({ ...prev, [cur.path]: e.target.value }))
+                  }
+                  onBlur={(e) => {
+                    const v = cleanBase(e.target.value);
+                    setRenames((prev) => {
+                      const next = { ...prev };
+                      if (!v || v === splitName(cur.name).base) delete next[cur.path];
+                      else next[cur.path] = v;
+                      return next;
+                    });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setRenames((prev) => {
+                        const next = { ...prev };
+                        delete next[cur.path];
+                        return next;
+                      });
+                      e.currentTarget.blur();
+                    }
+                  }}
+                />
+                <span className="rename-ext">{splitName(cur.name).ext}</span>
+                {renames[cur.path] !== undefined && (
+                  <button
+                    type="button"
+                    className="ghost-btn rename-reset"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() =>
+                      setRenames((prev) => {
+                        const next = { ...prev };
+                        delete next[cur.path];
+                        return next;
+                      })
+                    }
+                  >
+                    Asli
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="controls">
             <button
               type="button"

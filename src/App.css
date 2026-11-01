@@ -2789,3 +2789,49 @@ button.review-save {
 .pdf-full-scroll .pdf-full-page {
   flex-shrink: 0;
 }
+
+/* ---------- Rename di halaman review ---------- */
+.rename-row {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.rename-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.rename-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(92vw, 560px);
+}
+.rename-input {
+  width: min(60vw, 380px);
+  padding: 7px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  text-align: right;
+}
+.rename-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.rename-ext {
+  font-size: 12px;
+  color: var(--muted);
+}
+.rename-reset {
+  padding: 4px 8px;
+  font-size: 10px;
+}

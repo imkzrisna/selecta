@@ -380,7 +380,11 @@ fn get_video_thumbnail(path: String) -> Result<String, String> {
 
 // 3. Pindahkan (move) foto/PDF/video yang dipilih ke folder tujuan
 #[tauri::command]
-fn move_photo(source: String, dest_folder: String) -> Result<String, String> {
+fn move_photo(
+    source: String,
+    dest_folder: String,
+    new_name: Option<String>,
+) -> Result<String, String> {
     let src = Path::new(&source);
     let dest_dir = Path::new(&dest_folder);
 
@@ -388,17 +392,39 @@ fn move_photo(source: String, dest_folder: String) -> Result<String, String> {
         fs::create_dir_all(dest_dir).map_err(|e| e.to_string())?;
     }
 
-    let file_name = src
+    let orig_name = src
         .file_name()
-        .ok_or_else(|| "Nama file tidak valid".to_string())?;
-    let dest_path = dest_dir.join(file_name);
+        .ok_or_else(|| "Nama file tidak valid".to_string())?
+        .to_string_lossy()
+        .to_string();
+    let chosen = match new_name.as_deref().map(str::trim) {
+        Some(n) if !n.is_empty() => {
+            if n.contains('/') || n.contains('\\') || n == "." || n == ".." {
+                return Err("Nama file tidak valid".into());
+            }
+            n.to_string()
+        }
+        _ => orig_name,
+    };
+    let chosen_path = Path::new(&chosen);
+    let stem = chosen_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let ext = chosen_path
+        .extension()
+        .map(|e| e.to_string_lossy().to_string());
+    let dest_path = dest_dir.join(&chosen);
 
     let final_dest = if dest_path.exists() {
-        let stem = src.file_stem().unwrap_or_default().to_string_lossy();
-        let ext = src.extension().unwrap_or_default().to_string_lossy();
         let mut counter = 1;
         loop {
-            let candidate = dest_dir.join(format!("{}_{}.{}", stem, counter, ext));
+            let candidate_name = match &ext {
+                Some(e) => format!("{}_{}.{}", stem, counter, e),
+                None => format!("{}_{}", stem, counter),
+            };
+            let candidate = dest_dir.join(candidate_name);
             if !candidate.exists() {
                 break candidate;
             }
