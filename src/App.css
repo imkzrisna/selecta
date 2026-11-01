@@ -2739,3 +2739,36 @@ button.review-save {
 .pdf-viewer-compact .pdf-compact-scroll {
   justify-content: flex-start;
 }
+
+/* ---------- PDF kartu queue: bisa digeser kiri-kanan saat zoom-in ----------
+   align-items:center pada flex column membuat sisi kiri konten yang lebih
+   lebar dari kartu terpotong dan tak bisa di-scroll. Sekarang halaman
+   selebar kontennya (min. selebar kartu), jadi seluruh lebar bisa digulir. */
+.pdf-viewer-compact .pdf-compact-scroll {
+  align-items: flex-start;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.pdf-viewer-compact .pdf-compact-page {
+  width: max-content;
+  min-width: 100%;
+  flex-shrink: 0;
+  justify-content: center;
+}
+
+/* ---------- PDF kartu queue: wadah scroll dikunci selebar kartu ----------
+   .pdf-viewer mewarisi align-items:center, sehingga .pdf-compact-scroll
+   mengecil/membesar mengikuti isi lalu dipusatkan dan meluber ke dua sisi
+   (terpotong overflow:hidden induk). Dikunci agar kelebihan konten menjadi
+   area scroll, bukan terpotong. */
+.pdf-viewer-compact {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+.pdf-viewer-compact .pdf-compact-scroll {
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
