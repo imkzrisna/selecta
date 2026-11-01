@@ -21,7 +21,7 @@ type PhotoEntry = {
   kind: PhotoKind;
 };
 
-type Stage = "setup" | "preparing" | "sorting" | "review" | "done";
+type Stage = "setup" | "preparing" | "sorting" | "review" | "export" | "done";
 type ExitDirection = "left" | "right" | null;
 type HistoryEntry = { type: "reject" | "select"; photo: PhotoEntry };
 type Toast = { id: number; message: string };
@@ -142,7 +142,6 @@ function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [immersive, setImmersive] = useState(false);
   // Pop up pilih folder tujuan: muncul setelah preview selesai dirender.
-  const [destPromptOpen, setDestPromptOpen] = useState(false);
   // Foto yang sedang dibuka di mode besar (zoom pinch).
   const [zoomPhoto, setZoomPhoto] = useState<PhotoEntry | null>(null);
   // Halaman review: index foto yang sedang dicek + total yang sudah tersimpan.
@@ -150,6 +149,12 @@ function App() {
   const savedTotal = useRef(0);
   // Nama baru (tanpa ekstensi) per path, diterapkan saat Simpan.
   const [renames, setRenames] = useState<Record<string, string>>({});
+  // Pengaturan export.
+  const [exportMode, setExportMode] = useState<"jpg" | "original" | "zip">("original");
+  const [exportNewFolder, setExportNewFolder] = useState(false);
+  const [exportFolderName, setExportFolderName] = useState("");
+  const [exportZipName, setExportZipName] = useState("Selecta-export");
+  const [exportOutput, setExportOutput] = useState("");
 
   // drag state (not React state, to avoid re-render thrash while dragging)
   const [dragX, setDragX] = useState(0);
@@ -425,11 +430,9 @@ function App() {
       await prefetchAllImages(photos, (done, total) => {
         setPrepareProgress({ done, total });
       });
-      setDestFolder("");
-      setDestPromptOpen(true);
+      setStage("sorting");
     } catch (e) {
       pushToast(String(e));
-      setDestPromptOpen(false);
       setStage("setup");
     }
   };
@@ -920,41 +923,44 @@ function App() {
   };
 
   // --- Simpan: pindahkan semua foto terpilih ke folder tujuan ---
-  const saveSelected = async () => {
-    if (isProcessing || selectedPhotos.length === 0) return;
+  const exportFiles = async () => {
+    if (isProcessing || selectedPhotos.length === 0 || !destFolder) return;
+    const folderName = exportNewFolder ? cleanBase(exportFolderName) : "";
+    if (exportNewFolder && !folderName) {
+      pushToast("Isi nama folder baru dulu.");
+      return;
+    }
     setIsProcessing(true);
-    const failed: PhotoEntry[] = [];
-    let moved = 0;
-    for (const p of [...selectedPhotos].reverse()) {
-      try {
+    try {
+      const items = [...selectedPhotos].reverse().map((p) => {
         const r = renames[p.path];
         const base = r === undefined ? "" : cleanBase(r);
-        const full = base ? base + splitName(p.name).ext : "";
-        await invoke("move_photo", {
-          source: p.path,
+        return { path: p.path, name: base ? base + splitName(p.name).ext : p.name };
+      });
+      const res = await invoke<{ output: string; ok: number; failed: string[] }>(
+        "export_files",
+        {
+          items,
           destFolder,
-          newName: full && full !== p.name ? full : null,
-        });
-        moved += 1;
-      } catch (e) {
-        console.warn("Gagal memindahkan:", p.name, e);
-        failed.push(p);
+          newFolder: folderName || null,
+          mode: exportMode,
+          zipName: exportMode === "zip" ? cleanBase(exportZipName) || null : null,
+        },
+      );
+      if (res.failed.length > 0) {
+        console.warn("Export gagal sebagian:", res.failed);
+        pushToast(`${res.failed.length} file gagal diekspor.`);
       }
-    }
-    savedTotal.current += moved;
-    history.current = [];
-    setCanUndo(false);
-    setIsProcessing(false);
-    if (failed.length > 0) {
-      setSelectedPhotos(failed);
-      setSelectedCount(failed.length);
-      setReviewIndex(0);
-      pushToast(`${failed.length} file gagal dipindahkan. Coba Simpan lagi.`);
-    } else {
-      setSelectedPhotos([]);
-      setRenames({});
-      setSelectedCount(savedTotal.current);
-      setStage("done");
+      if (res.ok > 0) {
+        setExportOutput(res.output);
+        history.current = [];
+        setCanUndo(false);
+        setStage("done");
+      }
+    } catch (e) {
+      pushToast(String(e));
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -993,8 +999,8 @@ function App() {
     setStage("setup");
     setSourceFolder("");
     setDestFolder("");
-    setDestPromptOpen(false);
     savedTotal.current = 0;
+    setExportOutput("");
     setRenames({});
     setReviewIndex(0);
     setIsProcessing(false);
@@ -1102,70 +1108,9 @@ function App() {
           {total} preview siap
         </p>
         <p className="done-path mono">
-          {destPromptOpen
-            ? "Preview siap. Pilih lokasi penyimpanan."
-            : "Mohon tunggu sebentar…"}
+          Mohon tunggu sebentar…
         </p>
 
-        {destPromptOpen && (
-          <div className="dest-modal-backdrop" role="dialog" aria-modal="true">
-            <div className="dest-modal">
-              <div className="dest-modal-title">Simpan foto terpilih ke mana?</div>
-              <p className="dest-modal-desc">
-                Foto yang kamu pilih (→) akan dipindahkan ke folder ini.
-              </p>
-              <button
-                type="button"
-                className={`setup-row dest-modal-pick${destFolder ? " is-filled" : ""}`}
-                onClick={pickDestFolder}
-              >
-                <span className="setup-row-label">
-                  <span className="setup-icon" aria-hidden="true">
-                    <TrayGlyph />
-                  </span>
-                  <span className="setup-text">
-                    <span className="setup-title">Folder tujuan</span>
-                    <span className="path-label">
-                      {destFolder || "klik untuk memilih…"}
-                    </span>
-                  </span>
-                </span>
-                <span className="setup-chevron" aria-hidden="true">
-                  {destFolder ? "✓" : "›"}
-                </span>
-              </button>
-              <div className="dest-modal-actions">
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  onClick={() => {
-                    prefetchGeneration.current++;
-                    previewCache.current.clear();
-                    failedPreviews.current.clear();
-                    setQueue([]);
-                    setTotalLoaded(0);
-                    setPrepareProgress({ done: 0, total: 0 });
-                    setDestPromptOpen(false);
-                    setStage("setup");
-                  }}
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  className="primary dest-modal-go"
-                  disabled={!destFolder}
-                  onClick={() => {
-                    setDestPromptOpen(false);
-                    setStage("sorting");
-                  }}
-                >
-                  Mulai Sortir
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -1200,10 +1145,10 @@ function App() {
           <div className="top-bar-actions">
             <button
               className="primary review-save"
-              onClick={saveSelected}
+              onClick={() => setStage("export")}
               disabled={isProcessing || list.length === 0}
             >
-              {isProcessing ? "Memindahkan…" : `Simpan ${list.length} foto`}
+              {`Ekspor ${list.length} file ›`}
             </button>
           </div>
         </div>
@@ -1388,6 +1333,127 @@ function App() {
     );
   }
 
+  if (stage === "export") {
+    const count = selectedPhotos.length;
+    const folderName = cleanBase(exportFolderName);
+    const canGo =
+      !!destFolder && (!exportNewFolder || !!folderName) && count > 0 && !isProcessing;
+    const modes = [
+      {
+        value: "jpg",
+        title: "Foto biasa (JPG)",
+        desc: "HEIC, RAW, dan PNG dikonversi ke JPG. PDF dan video disalin apa adanya.",
+      },
+      {
+        value: "original",
+        title: "Format asli",
+        desc: "Semua file disalin tanpa diubah.",
+      },
+      {
+        value: "zip",
+        title: "ZIP",
+        desc: "Semua file dibungkus dalam satu file .zip.",
+      },
+    ] as const;
+    return (
+      <div className="container export-screen">
+        {ToastStack}
+        <span className="brand-mark">Selecta</span>
+        <h1>Ekspor {count} file</h1>
+        <p className="export-sub">
+          File asli di folder sumber tidak diubah, hasil ekspor berupa salinan.
+        </p>
+
+        <div className="export-section">
+          <div className="export-section-title mono">Lokasi</div>
+          <button
+            type="button"
+            className={`setup-row export-pick${destFolder ? " is-filled" : ""}`}
+            onClick={pickDestFolder}
+          >
+            <span className="setup-row-label">
+              <span className="setup-icon" aria-hidden="true">
+                <FolderGlyph />
+              </span>
+              <span className="setup-text">
+                <span className="setup-title">Folder tujuan</span>
+                <span className="path-label">{destFolder || "klik untuk memilih…"}</span>
+              </span>
+            </span>
+            <span className="setup-chevron" aria-hidden="true">
+              {destFolder ? "✓" : "›"}
+            </span>
+          </button>
+          <label className="export-check mono">
+            <input
+              type="checkbox"
+              checked={exportNewFolder}
+              onChange={(e) => setExportNewFolder(e.target.checked)}
+            />
+            Buat folder baru di dalam folder tujuan
+          </label>
+          {exportNewFolder && (
+            <input
+              className="rename-input export-input"
+              type="text"
+              placeholder="Nama folder baru"
+              spellCheck={false}
+              value={exportFolderName}
+              onChange={(e) => setExportFolderName(e.target.value)}
+            />
+          )}
+        </div>
+
+        <div className="export-section">
+          <div className="export-section-title mono">Format</div>
+          <div className="export-modes">
+            {modes.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                className={`export-mode${exportMode === m.value ? " is-active" : ""}`}
+                onClick={() => setExportMode(m.value)}
+                aria-pressed={exportMode === m.value}
+              >
+                <span className="export-mode-title">{m.title}</span>
+                <span className="export-mode-desc">{m.desc}</span>
+              </button>
+            ))}
+          </div>
+          {exportMode === "zip" && (
+            <input
+              className="rename-input export-input"
+              type="text"
+              placeholder="Nama file ZIP"
+              spellCheck={false}
+              value={exportZipName}
+              onChange={(e) => setExportZipName(e.target.value)}
+            />
+          )}
+        </div>
+
+        <div className="export-actions">
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={() => setStage("review")}
+            disabled={isProcessing}
+          >
+            ← Kembali
+          </button>
+          <button
+            type="button"
+            className="primary export-go"
+            onClick={exportFiles}
+            disabled={!canGo}
+          >
+            {isProcessing ? "Mengekspor…" : "Ekspor"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (stage === "done") {
     const rate = totalLoaded
       ? Math.round((selectedCount / totalLoaded) * 100)
@@ -1408,7 +1474,7 @@ function App() {
           <span className="stat-value">{selectedCount}</span> dari {totalLoaded}{" "}
           foto disimpan
         </p>
-        <p className="done-path mono">{destFolder}</p>
+        <p className="done-path mono">{exportOutput || destFolder}</p>
         <button className="primary" onClick={resetApp}>
           Mulai Roll Baru
         </button>
@@ -1920,9 +1986,9 @@ function App() {
 
         <aside className="side-panel">
           <div className="side-card">
-            <div className="side-card-title">Tujuan</div>
+            <div className="side-card-title">Sumber</div>
             <div className="side-dest">
-              <span className="side-dest-path mono">{destFolder}</span>
+              <span className="side-dest-path mono">{sourceFolder}</span>
             </div>
           </div>
         </aside>

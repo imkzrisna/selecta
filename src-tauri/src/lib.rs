@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 mod cache;
 
 // Batasi jumlah sips/generate preview yang jalan BERSAMAAN.
@@ -39,7 +39,7 @@ use cache::{CacheIndex, PREVIEW_VERSION};
 use std::time::UNIX_EPOCH;
 use tauri::AppHandle;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use base64::{engine::general_purpose, Engine as _};
 
@@ -438,6 +438,161 @@ fn move_photo(
     Ok(final_dest.to_string_lossy().to_string())
 }
 
+// 4. Export: salin / konversi JPG / bungkus ZIP ke folder tujuan.
+#[derive(Deserialize)]
+struct ExportItem {
+    path: String,
+    name: String,
+}
+
+#[derive(Serialize)]
+struct ExportResult {
+    output: String,
+    ok: usize,
+    failed: Vec<String>,
+}
+
+fn split_name(name: &str) -> (String, Option<String>) {
+    let p = Path::new(name);
+    (
+        p.file_stem().unwrap_or_default().to_string_lossy().to_string(),
+        p.extension().map(|e| e.to_string_lossy().to_string()),
+    )
+}
+
+fn numbered(stem: &str, ext: &Option<String>, i: u32) -> String {
+    match ext {
+        Some(e) => format!("{}_{}.{}", stem, i, e),
+        None => format!("{}_{}", stem, i),
+    }
+}
+
+fn unique_path(dir: &Path, name: &str) -> PathBuf {
+    let first = dir.join(name);
+    if !first.exists() {
+        return first;
+    }
+    let (stem, ext) = split_name(name);
+    let mut i = 1;
+    loop {
+        let c = dir.join(numbered(&stem, &ext, i));
+        if !c.exists() {
+            return c;
+        }
+        i += 1;
+    }
+}
+
+fn unique_entry(used: &mut std::collections::HashSet<String>, name: &str) -> String {
+    let mut candidate = name.to_string();
+    let (stem, ext) = split_name(name);
+    let mut i = 1;
+    while used.contains(&candidate) {
+        candidate = numbered(&stem, &ext, i);
+        i += 1;
+    }
+    used.insert(candidate.clone());
+    candidate
+}
+
+fn safe_component(s: &str) -> Result<String, String> {
+    let t = s.trim();
+    if t.is_empty() || t.contains('/') || t.contains('\\') || t == "." || t == ".." {
+        return Err("Nama tidak valid".into());
+    }
+    Ok(t.to_string())
+}
+
+#[tauri::command]
+fn export_files(
+    items: Vec<ExportItem>,
+    dest_folder: String,
+    new_folder: Option<String>,
+    mode: String,
+    zip_name: Option<String>,
+) -> Result<ExportResult, String> {
+    let mut target = PathBuf::from(&dest_folder);
+    if let Some(f) = new_folder.as_deref() {
+        if !f.trim().is_empty() {
+            target = target.join(safe_component(f)?);
+        }
+    }
+    fs::create_dir_all(&target).map_err(|e| e.to_string())?;
+
+    let mut failed: Vec<String> = Vec::new();
+    let mut ok = 0usize;
+    let output: String;
+
+    if mode == "zip" {
+        let base = match zip_name.as_deref().map(str::trim) {
+            Some(n) if !n.is_empty() => safe_component(n)?,
+            _ => "Selecta-export".to_string(),
+        };
+        let file_name = if base.to_lowercase().ends_with(".zip") {
+            base
+        } else {
+            format!("{}.zip", base)
+        };
+        let zip_path = unique_path(&target, &file_name);
+        let file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+        let mut writer = zip::ZipWriter::new(file);
+        let opts = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        let mut used: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for it in &items {
+            let res: Result<(), String> = (|| {
+                let entry = unique_entry(&mut used, &it.name);
+                writer.start_file(entry, opts).map_err(|e| e.to_string())?;
+                let mut f = fs::File::open(&it.path).map_err(|e| e.to_string())?;
+                std::io::copy(&mut f, &mut writer).map_err(|e| e.to_string())?;
+                Ok(())
+            })();
+            match res {
+                Ok(()) => ok += 1,
+                Err(e) => failed.push(format!("{}: {}", it.name, e)),
+            }
+        }
+        writer.finish().map_err(|e| e.to_string())?;
+        output = zip_path.to_string_lossy().to_string();
+    } else {
+        for it in &items {
+            let res: Result<(), String> = (|| {
+                let ext = Path::new(&it.path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                let is_image = kind_for_ext(&ext) == Some("image");
+                if mode == "jpg" && is_image && ext != "jpg" && ext != "jpeg" {
+                    let (stem, _) = split_name(&it.name);
+                    let out = unique_path(&target, &format!("{}.jpg", stem));
+                    let output = Command::new("sips")
+                        .args(["-s", "format", "jpeg", "-s", "formatOptions", "92"])
+                        .arg(&it.path)
+                        .arg("--out")
+                        .arg(&out)
+                        .output()
+                        .map_err(|e| format!("Gagal menjalankan sips: {}", e))?;
+                    if !output.status.success() {
+                        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+                    }
+                } else {
+                    let out = unique_path(&target, &it.name);
+                    fs::copy(&it.path, &out).map_err(|e| e.to_string())?;
+                }
+                Ok(())
+            })();
+            match res {
+                Ok(()) => ok += 1,
+                Err(e) => failed.push(format!("{}: {}", it.name, e)),
+            }
+        }
+        output = target.to_string_lossy().to_string();
+    }
+
+    Ok(ExportResult { output, ok, failed })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -450,7 +605,8 @@ pub fn run() {
             get_preview,
             get_video_thumbnail,
             move_photo,
-            scan_media
+            scan_media,
+            export_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2835,3 +2835,88 @@ button.review-save {
   padding: 4px 8px;
   font-size: 10px;
 }
+
+/* ---------- Layar export ---------- */
+.export-screen {
+  overflow-y: auto;
+  justify-content: flex-start;
+  padding-top: 40px;
+}
+.export-sub {
+  margin: 8px 0 22px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.export-section {
+  width: min(92vw, 520px);
+  text-align: left;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.export-section-title {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.export-pick {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.export-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.export-input {
+  width: 100%;
+  text-align: left;
+}
+.export-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.export-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  text-align: left;
+  letter-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.export-mode.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.export-mode-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.export-mode-desc {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.export-actions {
+  width: min(92vw, 520px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+button.export-go {
+  margin-top: 0;
+  padding: 11px 28px;
+}
