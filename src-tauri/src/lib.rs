@@ -613,6 +613,52 @@ fn export_files(
     Ok(ExportResult { output, ok, failed })
 }
 
+// 5. Gambar resolusi penuh untuk mode zoom (tanpa penurunan kualitas).
+//    Format yang dipahami WebView dipakai langsung; selebihnya dikonversi
+//    ke PNG lossless dan di-cache.
+#[tauri::command]
+fn get_full_image(path: String, app: AppHandle) -> Result<String, String> {
+    let p = Path::new(&path);
+    let ext = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    if ["jpg", "jpeg", "png", "bmp", "gif", "webp"].contains(&ext.as_str()) {
+        return Ok(path);
+    }
+    let meta = fs::metadata(p).map_err(|e| e.to_string())?;
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|m| m.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let dir = cache::cache_dir(&app)?.join("full");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let out = dir.join(format!(
+        "{}_{}_{}.png",
+        cache::hash_path(&path),
+        meta.len(),
+        modified
+    ));
+    if out.exists() {
+        return Ok(out.to_string_lossy().to_string());
+    }
+    let res = Command::new("sips")
+        .args(["-s", "format", "png"])
+        .arg(&path)
+        .arg("--out")
+        .arg(&out)
+        .output()
+        .map_err(|e| format!("Gagal menjalankan sips: {}", e))?;
+    if !res.status.success() {
+        let _ = fs::remove_file(&out);
+        return Err(String::from_utf8_lossy(&res.stderr).to_string());
+    }
+    Ok(out.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -626,7 +672,8 @@ pub fn run() {
             get_video_thumbnail,
             move_photo,
             scan_media,
-            export_files
+            export_files,
+            get_full_image
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

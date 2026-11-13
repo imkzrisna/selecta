@@ -6,7 +6,7 @@ import {
   useMemo,
   useReducer,
 } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
@@ -156,6 +156,28 @@ function App() {
   // Pop up pilih folder tujuan: muncul setelah preview selesai dirender.
   // Foto yang sedang dibuka di mode besar (zoom pinch).
   const [zoomPhoto, setZoomPhoto] = useState<PhotoEntry | null>(null);
+  // Sumber resolusi penuh untuk mode besar (menggantikan preview 2048px).
+  const [zoomFullSrc, setZoomFullSrc] = useState("");
+  useEffect(() => {
+    setZoomFullSrc("");
+    if (!zoomPhoto) return;
+    let cancelled = false;
+    invoke<string>("get_full_image", { path: zoomPhoto.path })
+      .then((full) => {
+        if (cancelled) return;
+        const url = convertFileSrc(full);
+        // Muat penuh di belakang layar, ganti setelah siap (tanpa kedip).
+        const img = new Image();
+        img.onload = () => {
+          if (!cancelled) setZoomFullSrc(url);
+        };
+        img.src = url;
+      })
+      .catch((e) => console.warn("Gagal memuat resolusi penuh:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [zoomPhoto]);
   // Halaman review: index foto yang sedang dicek + total yang sudah tersimpan.
   const [reviewIndex, setReviewIndex] = useState(0);
   const savedTotal = useRef(0);
@@ -2487,7 +2509,7 @@ function App() {
 
       {zoomPhoto && (
         <ImageZoomViewer
-          src={previewCache.current.get(zoomPhoto.path) ?? previewSrc}
+          src={zoomFullSrc || (previewCache.current.get(zoomPhoto.path) ?? previewSrc)}
           name={zoomPhoto.name}
           onClose={() => setZoomPhoto(null)}
         />

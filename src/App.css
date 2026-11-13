@@ -3212,3 +3212,9 @@ button.export-go {
     animation: none !important;
   }
 }
+
+/* Mode besar: jangan di-rasterize ulang dari bitmap kecil saat zoom. */
+.zoom-img {
+  will-change: auto;
+  image-rendering: auto;
+}
