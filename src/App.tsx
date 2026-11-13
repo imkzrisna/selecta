@@ -84,6 +84,10 @@ function cacheSet(
   }
 }
 
+// Durasi animasi undo — HARUS sama dengan App.css (.undo-from-back / .undo-from-tray).
+const UNDO_BACK_MS = 420;
+const UNDO_TRAY_MS = 460;
+
 let toastId = 0;
 
 // Pisahkan "nama.ext" menjadi base + ext (ext termasuk titik, atau "").
@@ -209,6 +213,14 @@ function App() {
   // menampilkan thumbnail yang baru saja masuk ke cache.
   const [, forceCacheRerender] = useReducer((n: number) => n + 1, 0);
   const history = useRef<HistoryEntry[]>([]);
+  // Animasi masuk khusus untuk kartu hasil undo. Dicocokkan lewat path
+  // supaya hanya kartu itu yang beranimasi; dihapus saat exit berikutnya.
+  const [undoAnim, setUndoAnim] = useState<{
+    path: string;
+    kind: "from-tray" | "from-back";
+    x?: number;
+    y?: number;
+  } | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [undoFlash, setUndoFlash] = useState(false);
 
@@ -568,6 +580,38 @@ function App() {
   );
 
   // --- Select: foto di-move ke destFolder, keluar dari queue ---
+  const startUndoAnim = useCallback(
+    (photo: PhotoEntry, kind: "from-tray" | "from-back") => {
+      let x: number | undefined;
+      let y: number | undefined;
+      if (kind === "from-tray") {
+        // Tanpa kartu/tray di layar (mis. dari halaman review): tanpa animasi.
+        if (!cardRef.current || !trayRef.current) return;
+        const card = cardRef.current;
+        const c = card.getBoundingClientRect();
+        const tr = trayRef.current.getBoundingClientRect();
+        const S = 0.3;
+        const cx = c.left + c.width / 2;
+        const cy = c.top + c.height / 2;
+        // Kebalikan perhitungan exit kanan (transform-origin kartu 80% 80%).
+        x = tr.left + tr.width / 2 - cx - 0.3 * card.offsetWidth * (1 - S);
+        y = tr.top + tr.height / 2 - cy - 0.3 * card.offsetHeight * (1 - S);
+        setTrayBump(true);
+        window.setTimeout(() => setTrayBump(false), 260);
+      }
+      setUndoAnim({ path: photo.path, kind, x, y });
+      // Kunci swipe selama kartu masih "masuk".
+      exitInProgress.current = true;
+      window.setTimeout(
+        () => {
+          exitInProgress.current = false;
+        },
+        kind === "from-tray" ? UNDO_TRAY_MS : UNDO_BACK_MS,
+      );
+    },
+    [],
+  );
+
   const handleSelect = useCallback(
     (photo: PhotoEntry) => {
       // Hanya menandai; file BARU dipindah saat "Simpan" di halaman review.
@@ -593,6 +637,7 @@ function App() {
     setUndoFlash(true);
     window.setTimeout(() => setUndoFlash(false), 320);
 
+    startUndoAnim(last.photo, last.type === "select" ? "from-tray" : "from-back");
     if (last.type === "select") {
       setSelectedCount((c) => Math.max(0, c - 1));
       setSelectedPhotos((prev) =>
@@ -603,12 +648,13 @@ function App() {
       last.photo,
       ...prev.filter((p) => p.path !== last.photo.path),
     ]);
-  }, [isProcessing, exitDir]);
+  }, [isProcessing, exitDir, startUndoAnim]);
 
   // --- Keluarkan foto dari terpilih: kembali ke depan antrian ---
   const handleRemoveSelected = useCallback(
     (photo: PhotoEntry) => {
       if (isProcessing) return;
+      startUndoAnim(photo, "from-tray");
       setSelectedCount((c) => Math.max(0, c - 1));
       setSelectedPhotos((prev) => prev.filter((p) => p.path !== photo.path));
       setQueue((prev) => [photo, ...prev.filter((p) => p.path !== photo.path)]);
@@ -618,7 +664,7 @@ function App() {
       setCanUndo(history.current.length > 0);
       if (viewingPhoto?.path === photo.path) setViewingPhoto(null);
     },
-    [isProcessing, viewingPhoto],
+    [isProcessing, viewingPhoto, startUndoAnim],
   );
   // --- Fullscreen / immersive mode: hides the surrounding chrome and lets
   // the print fill the window. Also asks the OS window to go fullscreen
@@ -702,6 +748,7 @@ function App() {
     ) => {
       exitInProgress.current = true;
       exitActive.current = true;
+      setUndoAnim(null);
       const token = ++exitToken.current;
       // Arahkan kartu ke tengah tray "Terpilih" (kartu & tray diukur sekarang).
       if (direction === "right" && cardRef.current && trayRef.current) {
@@ -1840,7 +1887,10 @@ function App() {
                         (isSettling ? " settling" : "") +
                         (exitDir === "left" ? " exit-left" : "") +
                         (exitDir === "right" ? " exit-right" : "") +
-                        (burst ? " is-burst" : "")
+                        (burst ? " is-burst" : "") +
+                        (!isExiting && undoAnim && current && undoAnim.path === current.path
+                          ? ` undo-${undoAnim.kind}`
+                          : "")
                       }
                       style={
                         isExiting
@@ -1852,6 +1902,10 @@ function App() {
                           : {
                               transform: `translateX(${dragX}px) rotate(${rotation}deg)`,
                               ["--enter-rot" as string]: `${enterRot}deg`,
+                              ["--undo-x" as string]:
+                                undoAnim?.x !== undefined ? `${undoAnim.x}px` : "120%",
+                              ["--undo-y" as string]:
+                                undoAnim?.y !== undefined ? `${undoAnim.y}px` : "0px",
                               zIndex: STACK_DEPTH + 1,
                             }
                       }
