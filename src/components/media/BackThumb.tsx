@@ -111,3 +111,10 @@ export default function BackThumb({ kind, path, name, onRatio }: Props) {
     </>
   );
 }
+
+export const peekThumb = (path: string) => cache.get(path);
+
+export function prefetchThumb(kind: "pdf" | "video", path: string) {
+  if (cache.has(path) || failed.has(path)) return;
+  loadThumb(kind, path).catch(() => failed.add(path));
+}

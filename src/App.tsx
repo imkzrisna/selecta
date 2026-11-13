@@ -13,7 +13,7 @@ import "./App.css";
 import PdfViewer from "./components/media/PdfViewer";
 import VideoViewer from "./components/media/VideoViewer";
 import ImageZoomViewer from "./components/media/ImageZoomViewer";
-import BackThumb from "./components/media/BackThumb";
+import BackThumb, { prefetchThumb } from "./components/media/BackThumb";
 
 type PhotoKind = "image" | "pdf" | "video";
 type PhotoEntry = {
@@ -538,6 +538,15 @@ function App() {
         : queue.filter((p) => p.kind === mediaFilter),
     [queue, mediaFilter],
   );
+
+  // Siapkan thumbnail PDF/video untuk beberapa kartu teratas lebih awal.
+  useEffect(() => {
+    if (stage !== "sorting") return;
+    visibleQueue.slice(0, 4).forEach((p) => {
+      if (p.kind === "pdf" || p.kind === "video") prefetchThumb(p.kind, p.path);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, visibleQueue[0]?.path, visibleQueue[1]?.path, visibleQueue[2]?.path, visibleQueue[3]?.path]);
 
   // Ukuran kartu depan, dipakai untuk menyamakan ukuran kartu belakang.
   const [frontBox, setFrontBox] = useState<{ w: number; h: number } | null>(null);

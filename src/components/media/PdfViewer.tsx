@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
+import { peekThumb } from "./BackThumb";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -36,6 +37,8 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
   const containerScrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [fitted, setFitted] = useState(false);
+  const [firstRendered, setFirstRendered] = useState(false);
+  const firstRef = useRef(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const pageCanvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
@@ -61,6 +64,8 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
     setLoading(true);
     setError(null);
     setFitted(false);
+    setFirstRendered(false);
+    firstRef.current = false;
     setCurrentPage(1);
     userZoomed.current = false;
     baseSize.current = null;
@@ -213,13 +218,17 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
           if (canvas) {
             try {
               await renderPageToCanvas(i, canvas, scale);
+              if (i === 1 && !firstRef.current) {
+                firstRef.current = true;
+                if (!cancelled) setFirstRendered(true);
+              }
             } catch (e) {
               if (!cancelled) setError(String(e));
             }
           }
         }
       })();
-    }, 80);
+    }, firstRef.current ? 80 : 0);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -461,6 +470,7 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
 
   const scrollClass = compact ? "pdf-compact-scroll" : "pdf-full-scroll";
   const pageWrapClass = compact ? "pdf-compact-page" : "pdf-full-page";
+  const placeholder = compact && !firstRendered ? peekThumb(path) : undefined;
   const stop = compact ? (e: React.SyntheticEvent) => e.stopPropagation() : undefined;
 
   return (
@@ -470,6 +480,9 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
         isFullscreen ? " is-fullscreen" : ""
       }`}
     >
+      {placeholder && (
+        <img className="pdf-compact-placeholder" src={placeholder} alt="" draggable={false} />
+      )}
       {loading ? (
         <div className="pdf-viewer-loading mono">Memuat PDF…</div>
       ) : (

@@ -3308,3 +3308,15 @@ body {
   left: 12px;
   bottom: 12px;
 }
+
+/* Placeholder thumbnail di kartu depan PDF sampai halaman pertama dirender */
+.pdf-compact-placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+  z-index: 4;
+  pointer-events: none;
+}
