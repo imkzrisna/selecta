@@ -3046,3 +3046,48 @@ button.export-go {
 .zoom-img {
   -webkit-touch-callout: none;
 }
+
+/* ---------- Exit kanan: kartu terbang masuk ke tray ----------
+   --exit-x / --exit-y diisi dari App.tsx (runExit). Fallback dipakai
+   kalau tray tidak ditemukan. Durasi tetap 380ms (normal) / 150ms (burst). */
+@keyframes exit-to-tray {
+  from {
+    transform: translate(var(--start-x, 0px), 0) rotate(var(--start-rot, 0deg))
+      scale(1);
+  }
+  to {
+    transform: translate(var(--exit-x, 135%), var(--exit-y, -14%)) rotate(10deg)
+      scale(0.3);
+  }
+}
+@keyframes exit-to-tray-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.preview-card.exit-right {
+  animation:
+    exit-to-tray 380ms cubic-bezier(0.5, 0, 0.25, 1) forwards,
+    exit-to-tray-fade 130ms linear 250ms forwards;
+  will-change: transform, opacity;
+}
+.preview-card.exit-right.is-burst {
+  animation-duration: 150ms, 50ms;
+  animation-delay: 0s, 100ms;
+}
+
+/* Denyut tray saat foto mendarat */
+@keyframes tray-land {
+  0% {
+    transform: translateY(-50%) scale(1);
+  }
+  40% {
+    transform: translateY(-50%) scale(1.12);
+  }
+  100% {
+    transform: translateY(-50%) scale(1);
+  }
+}

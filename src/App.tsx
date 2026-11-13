@@ -703,6 +703,22 @@ function App() {
       exitInProgress.current = true;
       exitActive.current = true;
       const token = ++exitToken.current;
+      // Arahkan kartu ke tengah tray "Terpilih" (kartu & tray diukur sekarang).
+      if (direction === "right" && cardRef.current && trayRef.current) {
+        const card = cardRef.current;
+        const c = card.getBoundingClientRect();
+        const tr = trayRef.current.getBoundingClientRect();
+        const FINAL_S = 0.3;
+        const w = card.offsetWidth;
+        const h = card.offsetHeight;
+        // Pusat kartu tanpa translasi drag; transform-origin kartu 80% 80%.
+        const cx = c.left + c.width / 2 - startX;
+        const cy = c.top + c.height / 2;
+        const x = tr.left + tr.width / 2 - cx - 0.3 * w * (1 - FINAL_S);
+        const y = tr.top + tr.height / 2 - cy - 0.3 * h * (1 - FINAL_S);
+        card.style.setProperty("--exit-x", `${x}px`);
+        card.style.setProperty("--exit-y", `${y}px`);
+      }
       dragging.current = false;
       setIsSettling(false);
       setExitStartX(startX);
