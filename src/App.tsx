@@ -41,6 +41,13 @@ const CARD_POP_IN_MS = 380;
 const BURST_EXIT_MS = 150;
 const BURST_GATE_MS = 24; // jeda gerbang antar kartu saat burst
 const MAX_PENDING_BURST = 3; // maks. tekanan yang ditampung
+const BURST_MIN_MS = 65; // durasi exit tercepat saat burst panjang
+const BURST_RAMP = 14; // jumlah kartu sampai kecepatan maksimum
+const burstExitMs = (n: number) =>
+  Math.round(
+    BURST_EXIT_MS -
+      (BURST_EXIT_MS - BURST_MIN_MS) * (Math.min(n, BURST_RAMP) / BURST_RAMP),
+  );
 const BURST_WINDOW_MS = 300; // jeda maksimum antar tekanan ← agar dianggap burst
 const BURST_IDLE_MS = 500; // burst berakhir jika tidak ada trigger sepanjang ini
 // Durasi animasi exit normal (single press) — NILAI TIDAK BERUBAH dari
@@ -190,6 +197,12 @@ function App() {
   const exitActive = useRef(false);
   const lastLeftAt = useRef(0);
   const lastRightAt = useRef(0);
+  const burstStreak = useRef(0);
+  const lastUndoAt = useRef(0);
+  const undoStreak = useRef(0);
+  const burstCommitRef = useRef<
+    (dir: "left" | "right", ms: number, fast: boolean) => boolean
+  >(() => false);
   const pendingDirs = useRef<("left" | "right")[]>([]);
   const drainRef = useRef<() => void>(() => {});
   const drainTimer = useRef<number | null>(null);
@@ -226,6 +239,7 @@ function App() {
     kind: "from-tray" | "from-back";
     x?: number;
     y?: number;
+    ms?: number;
   } | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [undoFlash, setUndoFlash] = useState(false);
@@ -605,14 +619,19 @@ function App() {
         setTrayBump(true);
         window.setTimeout(() => setTrayBump(false), 260);
       }
-      setUndoAnim({ path: photo.path, kind, x, y });
+      const nowU = performance.now();
+      undoStreak.current = nowU - lastUndoAt.current < 450 ? undoStreak.current + 1 : 0;
+      lastUndoAt.current = nowU;
+      const baseMs = kind === "from-tray" ? UNDO_TRAY_MS : UNDO_BACK_MS;
+      const ms = Math.max(110, Math.round(baseMs * Math.pow(0.82, undoStreak.current)));
+      setUndoAnim({ path: photo.path, kind, x, y, ms });
       // Kunci swipe selama kartu masih "masuk".
       exitInProgress.current = true;
       window.setTimeout(
         () => {
           exitInProgress.current = false;
         },
-        kind === "from-tray" ? UNDO_TRAY_MS : UNDO_BACK_MS,
+        ms,
       );
     },
     [],
@@ -758,7 +777,26 @@ function App() {
       exitInProgress.current = true;
       exitActive.current = true;
       setUndoAnim(null);
+      // Foto lewat keyboard (tekan tunggal / burst): kartu terbang sebagai
+      // ghost, keputusan langsung dicatat, kartu berikutnya langsung naik.
+      if (
+        (durationMs || startX === 0) &&
+        burstCommitRef.current(
+          direction,
+          durationMs ?? NORMAL_EXIT_MS[direction],
+          !!durationMs,
+        )
+      ) {
+        exitActive.current = false;
+        return;
+      }
       const token = ++exitToken.current;
+      if (durationMs && cardRef.current) {
+        const st = cardRef.current.style;
+        st.setProperty("--burst-ms", `${durationMs}ms`);
+        st.setProperty("--burst-fade", `${Math.max(30, Math.round(durationMs / 3))}ms`);
+        st.setProperty("--burst-fade-delay", `${Math.round(durationMs * 0.66)}ms`);
+      }
       // Arahkan kartu ke tengah tray "Terpilih" (kartu & tray diukur sekarang).
       if (direction === "right" && cardRef.current && trayRef.current) {
         const card = cardRef.current;
@@ -823,7 +861,14 @@ function App() {
         burstRef.current = false;
         setBurst(false);
       }, BURST_IDLE_MS);
-      runExit(direction, startX, startRot, fast ? BURST_EXIT_MS : undefined);
+      let ms: number | undefined;
+      if (fast) {
+        burstStreak.current += 1;
+        ms = burstExitMs(burstStreak.current);
+      } else {
+        burstStreak.current = 0;
+      }
+      runExit(direction, startX, startRot, ms);
     },
     [queue.length, isProcessing, exitDir, loadingPreview, runExit],
   );
@@ -853,12 +898,66 @@ function App() {
     window.setTimeout(() => {
       exitInProgress.current = false;
       drainRef.current();
-    }, burstRef.current ? BURST_GATE_MS : CARD_POP_IN_MS);
+    }, burstRef.current ? Math.max(6, BURST_GATE_MS - burstStreak.current * 2) : CARD_POP_IN_MS);
   }, [exitDir, visibleQueue, handleReject, handleSelect]);
 
   useEffect(() => {
     handleExitAnimationEndRef.current = handleExitAnimationEnd;
   }, [handleExitAnimationEnd]);
+
+  useEffect(() => {
+    burstCommitRef.current = (dir, ms, fast) => {
+      const card = cardRef.current;
+      const box = card?.parentElement;
+      const photo = visibleQueue[0];
+      if (!card || !box || !photo || photo.kind !== "image") return false;
+
+      const ghost = card.cloneNode(true) as HTMLDivElement;
+      ghost.className = `preview-card exit-${dir}${fast ? " is-burst" : ""} is-ghost`;
+      ghost.style.pointerEvents = "none";
+      ghost.style.transform = "";
+      ghost.style.zIndex = String(STACK_DEPTH + 2);
+      ghost.style.setProperty("--start-x", "0px");
+      ghost.style.setProperty("--start-rot", "0deg");
+      if (fast) {
+        ghost.style.setProperty("--burst-ms", `${ms}ms`);
+        ghost.style.setProperty("--burst-fade", `${Math.max(30, Math.round(ms / 3))}ms`);
+        ghost.style.setProperty("--burst-fade-delay", `${Math.round(ms * 0.66)}ms`);
+      }
+      if (dir === "right" && trayRef.current) {
+        const c = card.getBoundingClientRect();
+        const tr = trayRef.current.getBoundingClientRect();
+        const S = 0.3;
+        const cx = c.left + c.width / 2;
+        const cy = c.top + c.height / 2;
+        ghost.style.setProperty(
+          "--exit-x",
+          `${tr.left + tr.width / 2 - cx - 0.3 * card.offsetWidth * (1 - S)}px`,
+        );
+        ghost.style.setProperty(
+          "--exit-y",
+          `${tr.top + tr.height / 2 - cy - 0.3 * card.offsetHeight * (1 - S)}px`,
+        );
+      }
+      box.appendChild(ghost);
+      window.setTimeout(() => ghost.remove(), ms + 120);
+
+      // Catat keputusan sekarang; kartu berikutnya langsung naik.
+      if (dir === "left") handleReject(photo);
+      else handleSelect(photo);
+
+      const release = () => {
+        exitInProgress.current = false;
+        drainRef.current();
+      };
+      if (fast) {
+        requestAnimationFrame(() => requestAnimationFrame(release));
+      } else {
+        window.setTimeout(release, 120);
+      }
+      return true;
+    };
+  });
 
   // Eksekusi tekanan yang ditampung selama burst (selalu memakai closure terbaru).
   useEffect(() => {
@@ -918,6 +1017,10 @@ function App() {
     },
     [triggerExit],
   );
+
+  useEffect(() => {
+    if (!burst) burstStreak.current = 0;
+  }, [burst]);
 
   // Tombol ditahan lalu dilepas: buang sisa antrean supaya berhenti tepat.
   useEffect(() => {
@@ -1982,6 +2085,7 @@ function App() {
                                 undoAnim?.x !== undefined ? `${undoAnim.x}px` : "120%",
                               ["--undo-y" as string]:
                                 undoAnim?.y !== undefined ? `${undoAnim.y}px` : "0px",
+                              ["--undo-ms" as string]: undoAnim?.ms ? `${undoAnim.ms}ms` : "420ms",
                               zIndex: STACK_DEPTH + 1,
                             }
                       }

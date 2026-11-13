@@ -3158,3 +3158,28 @@ button.export-go {
 .preview-card.exit-right.is-burst {
   animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1), linear;
 }
+
+/* ---------- Burst bertahap: durasi dari variabel (diisi App.tsx) ---------- */
+.preview-card.exit-left.is-burst {
+  animation-duration: var(--burst-ms, 150ms);
+}
+.preview-card.exit-right.is-burst {
+  animation-duration: var(--burst-ms, 150ms), var(--burst-fade, 50ms);
+  animation-delay: 0s, var(--burst-fade-delay, 100ms);
+}
+.preview-card.undo-from-back {
+  animation-duration: var(--undo-ms, 420ms), calc(var(--undo-ms, 420ms) * 0.4);
+}
+.preview-card.undo-from-tray {
+  animation-duration: var(--undo-ms, 460ms), calc(var(--undo-ms, 460ms) * 0.26);
+}
+
+/* ---------- Ghost + kartu baru naik halus saat burst ---------- */
+.preview-card.is-burst:not(.exit-left):not(.exit-right):not([class*="undo-"]) {
+  animation-duration: 70ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.preview-card.is-ghost {
+  pointer-events: none;
+  animation-fill-mode: forwards;
+}
