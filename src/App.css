@@ -3218,3 +3218,46 @@ button.export-go {
   will-change: auto;
   image-rendering: auto;
 }
+
+/* ---------- Latar ambient di belakang kartu (sorting & review) ---------- */
+.sorting-screen::before,
+.review-screen::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    /* cahaya utama tepat di belakang kartu */
+    radial-gradient(
+      ellipse 42% 52% at 50% 52%,
+      rgba(52, 82, 255, 0.10),
+      rgba(52, 82, 255, 0.04) 55%,
+      transparent 75%
+    ),
+    /* hangat di sudut kiri atas */
+    radial-gradient(
+      ellipse 38% 42% at 8% 0%,
+      rgba(255, 196, 140, 0.16),
+      transparent 70%
+    ),
+    /* sejuk di sudut kanan bawah */
+    radial-gradient(
+      ellipse 40% 44% at 96% 100%,
+      rgba(140, 170, 255, 0.16),
+      transparent 70%
+    ),
+    /* vignette tepi */
+    radial-gradient(
+      ellipse 85% 85% at 50% 50%,
+      transparent 60%,
+      rgba(20, 20, 15, 0.05) 100%
+    );
+}
+
+/* Titik-titik latar dipudarkan agar tidak bersaing dengan kartu */
+body {
+  background:
+    radial-gradient(rgba(207, 206, 197, 0.55) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--bg);
+}
