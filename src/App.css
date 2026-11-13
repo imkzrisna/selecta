@@ -3261,3 +3261,24 @@ body {
     radial-gradient(rgba(207, 206, 197, 0.55) 1px, transparent 1px) 0 0 / 22px 22px,
     var(--bg);
 }
+
+/* ---------- Thumbnail kartu belakang PDF / video ---------- */
+.stack-sheet-inner[data-kind] {
+  position: relative;
+}
+.stack-sheet-inner[data-kind] .stack-sheet-thumb {
+  object-fit: contain;
+  background: #fff;
+}
+.back-thumb-badge {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  padding: 2px 8px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+  pointer-events: none;
+}

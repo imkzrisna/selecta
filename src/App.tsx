@@ -13,6 +13,7 @@ import "./App.css";
 import PdfViewer from "./components/media/PdfViewer";
 import VideoViewer from "./components/media/VideoViewer";
 import ImageZoomViewer from "./components/media/ImageZoomViewer";
+import BackThumb from "./components/media/BackThumb";
 
 type PhotoKind = "image" | "pdf" | "video";
 type PhotoEntry = {
@@ -2030,14 +2031,18 @@ function App() {
                           }
                         >
                           {p.kind !== "image" && (
-                            <div className="stack-sheet-kind mono">
-                              <span className="stack-sheet-kind-label">
-                                {p.kind === "pdf" ? "PDF" : "VIDEO"}
-                              </span>
-                              <span className="stack-sheet-kind-name">
-                                {p.name}
-                              </span>
-                            </div>
+                            <BackThumb
+                              kind={p.kind}
+                              path={p.path}
+                              name={p.name}
+                              onRatio={(r) =>
+                                setStackAspectRatios((prev) =>
+                                  prev[p.path] === r
+                                    ? prev
+                                    : { ...prev, [p.path]: r },
+                                )
+                              }
+                            />
                           )}
                           {!thumb &&
                             p.kind === "image" &&
