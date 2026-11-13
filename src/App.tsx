@@ -99,6 +99,24 @@ const UNDO_TRAY_MS = 460;
 
 let toastId = 0;
 
+// Kartu belakang dimuat di dalam kotak kartu depan (94%), rasio asli dijaga.
+function backCardStyle(
+  r: number | undefined,
+  box: { w: number; h: number } | null,
+): React.CSSProperties | undefined {
+  if (!r) return undefined;
+  if (!box || !box.w || !box.h) return { aspectRatio: `${r}` };
+  // Muat rasio asli ke dalam area kartu (box = area tersedia), skala 0.9.
+  const w = Math.min(box.w * 0.9, box.h * 0.9 * r);
+  return {
+    aspectRatio: `${r}`,
+    width: w,
+    height: w / r,
+    maxWidth: "none",
+    maxHeight: "none",
+  };
+}
+
 // Pisahkan "nama.ext" menjadi base + ext (ext termasuk titik, atau "").
 function splitName(name: string) {
   const i = name.lastIndexOf(".");
@@ -520,6 +538,40 @@ function App() {
         : queue.filter((p) => p.kind === mediaFilter),
     [queue, mediaFilter],
   );
+
+  // Ukuran kartu depan, dipakai untuk menyamakan ukuran kartu belakang.
+  const [frontBox, setFrontBox] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (stage !== "sorting" || visibleQueue.length === 0) return;
+    let ro: ResizeObserver | null = null;
+    let raf = 0;
+    const attach = () => {
+      const el = cardRef.current?.querySelector(
+        ".preview-photo-inner",
+      )?.parentElement as HTMLElement | null;
+      if (!el) {
+        raf = requestAnimationFrame(attach);
+        return;
+      }
+      const upd = () =>
+        setFrontBox((prev) =>
+          prev &&
+          Math.abs(prev.w - el.offsetWidth) < 1 &&
+          Math.abs(prev.h - el.offsetHeight) < 1
+            ? prev
+            : { w: el.offsetWidth, h: el.offsetHeight },
+        );
+      ro = new ResizeObserver(upd);
+      ro.observe(el);
+      upd();
+    };
+    attach();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, visibleQueue[0]?.path, visibleQueue.length > 0]);
 
   useEffect(() => {
     if (stage !== "sorting" || visibleQueue.length === 0) {
@@ -2024,11 +2076,7 @@ function App() {
                         <div
                           className="stack-sheet-inner"
                           data-kind={p.kind}
-                          style={
-                            stackAspectRatios[p.path]
-                              ? { aspectRatio: `${stackAspectRatios[p.path]}` }
-                              : undefined
-                          }
+                          style={backCardStyle(stackAspectRatios[p.path], frontBox)}
                         >
                           {p.kind !== "image" && (
                             <BackThumb
