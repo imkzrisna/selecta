@@ -287,6 +287,25 @@ function App() {
     (e.target as Element).releasePointerCapture?.(e.pointerId);
   }, []);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFilterOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [filterOpen]);
   const trayRef = useRef<HTMLDivElement>(null);
 
   // A photo from the dropdown currently shown large in the lightbox.
@@ -1492,43 +1511,57 @@ function App() {
           <span className="stat-value">{selectedCount}</span> / {totalLoaded}{" "}
           terpilih
         </span>
-        <div
-          className="media-filter"
-          role="group"
-          aria-label="Filter jenis media"
-        >
-          {(
-            [
-              { value: "all", label: "Semua", count: queue.length },
-              {
-                value: "image",
-                label: "Foto",
-                count: queue.filter((p) => p.kind === "image").length,
-              },
-              {
-                value: "pdf",
-                label: "PDF",
-                count: queue.filter((p) => p.kind === "pdf").length,
-              },
-              {
-                value: "video",
-                label: "Video",
-                count: queue.filter((p) => p.kind === "video").length,
-              },
-            ] as const
-          ).map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`media-filter-btn${mediaFilter === opt.value ? " is-active" : ""}`}
-              onClick={() => setMediaFilter(opt.value)}
-              disabled={isProcessing || isExiting}
-            >
-              {opt.label}
-              <span className="media-filter-count mono">{opt.count}</span>
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const opts = [
+            { value: "all", label: "Semua", count: queue.length },
+            { value: "image", label: "Foto", count: queue.filter((p) => p.kind === "image").length },
+            { value: "pdf", label: "PDF", count: queue.filter((p) => p.kind === "pdf").length },
+            { value: "video", label: "Video", count: queue.filter((p) => p.kind === "video").length },
+          ] as const;
+          const active = opts.find((o) => o.value === mediaFilter) ?? opts[0];
+          return (
+            <div className="filter-menu" ref={filterRef}>
+              <button
+                type="button"
+                className={`filter-trigger${filterOpen ? " is-open" : ""}`}
+                onClick={() => setFilterOpen((o) => !o)}
+                disabled={isProcessing || isExiting}
+                aria-haspopup="listbox"
+                aria-expanded={filterOpen}
+                title="Filter jenis media"
+              >
+                <span className="filter-ico">
+                  <FilterGlyph kind={active.value} />
+                </span>
+                <span className="filter-label">{active.label}</span>
+                <span className="filter-chevron" aria-hidden="true">▾</span>
+              </button>
+              {filterOpen && (
+                <div className="filter-pop" role="listbox" aria-label="Filter jenis media">
+                  {opts.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="option"
+                      aria-selected={mediaFilter === o.value}
+                      className={`filter-opt${mediaFilter === o.value ? " is-active" : ""}`}
+                      onClick={() => {
+                        setMediaFilter(o.value);
+                        setFilterOpen(false);
+                      }}
+                    >
+                      <span className="filter-ico">
+                        <FilterGlyph kind={o.value} />
+                      </span>
+                      <span className="filter-opt-label">{o.label}</span>
+                      <span className="filter-opt-count mono">{o.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <div className="top-bar-actions">
           <button
             className={`ghost-btn${undoFlash ? " undo-flash" : ""}`}
@@ -2259,6 +2292,43 @@ function App() {
 }
 
 // --- small inline glyphs, so the setup screen doesn't need an icon library ---
+function FilterGlyph({ kind }: { kind: "all" | PhotoKind }) {
+  const common = { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none" } as const;
+  const s = { stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  if (kind === "image") {
+    return (
+      <svg {...common}>
+        <rect x="4" y="5" width="16" height="14" rx="2.5" {...s} />
+        <circle cx="9" cy="10" r="1.4" {...s} />
+        <path d="m5 17 4.5-4.5 3.5 3.5 2.5-2.5L19 16" {...s} />
+      </svg>
+    );
+  }
+  if (kind === "pdf") {
+    return (
+      <svg {...common}>
+        <path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5Z" {...s} />
+        <path d="M9.5 13h5M9.5 16.5h5" {...s} />
+      </svg>
+    );
+  }
+  if (kind === "video") {
+    return (
+      <svg {...common}>
+        <path d="M9 7.5v9l7.5-4.5L9 7.5Z" fill="currentColor" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <rect x="4.5" y="4.5" width="6" height="6" rx="1.5" {...s} />
+      <rect x="13.5" y="4.5" width="6" height="6" rx="1.5" {...s} />
+      <rect x="4.5" y="13.5" width="6" height="6" rx="1.5" {...s} />
+      <rect x="13.5" y="13.5" width="6" height="6" rx="1.5" {...s} />
+    </svg>
+  );
+}
+
 function FolderGlyph() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
