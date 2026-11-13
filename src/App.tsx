@@ -932,9 +932,29 @@ function App() {
       const card = cardRef.current;
       const box = card?.parentElement;
       const photo = visibleQueue[0];
-      if (!card || !box || !photo || photo.kind !== "image") return false;
+      if (!card || !box || !photo) return false;
 
       const ghost = card.cloneNode(true) as HTMLDivElement;
+      // cloneNode tidak menyalin isi <canvas> (PDF) maupun posisi scroll.
+      const copyCanvases = () => {
+        const src = card.querySelectorAll("canvas");
+        const dst = ghost.querySelectorAll("canvas");
+        src.forEach((c, i) => {
+          const d = dst[i] as HTMLCanvasElement | undefined;
+          if (!d) return;
+          try {
+            d.getContext("2d")?.drawImage(c, 0, 0);
+          } catch {
+            /* abaikan: ghost tetap terbang tanpa isi kanvas */
+          }
+        });
+        const s1 = card.querySelector(".pdf-compact-scroll");
+        const s2 = ghost.querySelector(".pdf-compact-scroll");
+        if (s1 && s2) {
+          s2.scrollTop = s1.scrollTop;
+          s2.scrollLeft = s1.scrollLeft;
+        }
+      };
       ghost.className = `preview-card exit-${dir}${fast ? " is-burst" : ""} is-ghost`;
       ghost.style.pointerEvents = "none";
       ghost.style.transform = "";
@@ -962,6 +982,7 @@ function App() {
         );
       }
       box.appendChild(ghost);
+      copyCanvases();
       window.setTimeout(() => ghost.remove(), ms + 120);
 
       // Catat keputusan sekarang; kartu berikutnya langsung naik.
@@ -1739,7 +1760,12 @@ function App() {
   // Rasio kartu belakang sudah diketahui dari stackAspectRatios, jadi kartu
   // yang naik jadi current langsung memakai bentuk yang sama (tanpa lompat).
   const displayAspectRatio =
-    (current && stackAspectRatios[current.path]) || currentAspectRatio;
+    (current && stackAspectRatios[current.path]) ||
+    (current?.kind === "pdf"
+      ? 0.707
+      : current?.kind === "video"
+        ? 16 / 9
+        : currentAspectRatio);
   // Pose awal pop-in = pose kartu belakang depth 1 (rumus sama dengan stack-sheet).
   const enterRot = current ? -3 + seededOffset(current.path, 1).rotate * 0.5 : -3;
   const frameNumber = totalLoaded - queue.length + 1;
@@ -2122,7 +2148,9 @@ function App() {
                           (current?.kind === "pdf" || current?.kind === "video"
                             ? " is-clickable"
                             : "") +
-                          (skipResizeAnim ? " no-resize-anim" : "")
+                          (skipResizeAnim || current?.kind === "pdf" || current?.kind === "video"
+                            ? " no-resize-anim"
+                            : "")
                         }
                         style={
                           displayAspectRatio
@@ -2149,13 +2177,31 @@ function App() {
                           <PdfViewer
                             path={current.path}
                             compact
-                            onDimensionsChange={setCurrentAspectRatio}
+                            onDimensionsChange={(r) => {
+                              setCurrentAspectRatio(r);
+                              if (current) {
+                                setStackAspectRatios((prev) =>
+                                  prev[current.path] === r
+                                    ? prev
+                                    : { ...prev, [current.path]: r },
+                                );
+                              }
+                            }}
                           />
                         ) : current?.kind === "video" ? (
                           <VideoViewer
                             path={current.path}
                             compact
-                            onDimensionsChange={setCurrentAspectRatio}
+                            onDimensionsChange={(r) => {
+                              setCurrentAspectRatio(r);
+                              if (current) {
+                                setStackAspectRatios((prev) =>
+                                  prev[current.path] === r
+                                    ? prev
+                                    : { ...prev, [current.path]: r },
+                                );
+                              }
+                            }}
                           />
                         ) : (
                           <img
