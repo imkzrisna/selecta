@@ -503,6 +503,15 @@ fn safe_component(s: &str) -> Result<String, String> {
     Ok(t.to_string())
 }
 
+// Pindahkan file: rename; kalau beda disk, salin lalu hapus yang lama.
+fn move_file(src: &str, dst: &Path) -> Result<(), String> {
+    if fs::rename(src, dst).is_ok() {
+        return Ok(());
+    }
+    fs::copy(src, dst).map_err(|e| e.to_string())?;
+    fs::remove_file(src).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn export_files(
     items: Vec<ExportItem>,
@@ -539,6 +548,7 @@ fn export_files(
         let opts = zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated);
         let mut used: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut zipped: Vec<String> = Vec::new();
         for it in &items {
             let res: Result<(), String> = (|| {
                 let entry = unique_entry(&mut used, &it.name);
@@ -548,11 +558,20 @@ fn export_files(
                 Ok(())
             })();
             match res {
-                Ok(()) => ok += 1,
+                Ok(()) => {
+                    ok += 1;
+                    zipped.push(it.path.clone());
+                }
                 Err(e) => failed.push(format!("{}: {}", it.name, e)),
             }
         }
         writer.finish().map_err(|e| e.to_string())?;
+        // ZIP sudah jadi: hapus file asli (konsep pindah).
+        for src in &zipped {
+            if let Err(e) = fs::remove_file(src) {
+                failed.push(format!("{}: gagal menghapus asli: {}", src, e));
+            }
+        }
         output = zip_path.to_string_lossy().to_string();
     } else {
         for it in &items {
@@ -576,9 +595,10 @@ fn export_files(
                     if !output.status.success() {
                         return Err(String::from_utf8_lossy(&output.stderr).to_string());
                     }
+                    fs::remove_file(&it.path).map_err(|e| e.to_string())?;
                 } else {
                     let out = unique_path(&target, &it.name);
-                    fs::copy(&it.path, &out).map_err(|e| e.to_string())?;
+                    move_file(&it.path, &out)?;
                 }
                 Ok(())
             })();

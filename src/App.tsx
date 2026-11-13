@@ -1334,12 +1334,12 @@ function App() {
       {
         value: "original",
         title: "Format asli",
-        desc: "Semua file disalin tanpa diubah.",
+        desc: "Semua file dipindahkan tanpa diubah.",
       },
       {
         value: "zip",
         title: "ZIP",
-        desc: "Semua file dibungkus dalam satu file .zip.",
+        desc: "Semua file dibungkus dalam satu .zip, lalu file asli dihapus dari folder sumber.",
       },
     ] as const;
     return (
@@ -1348,7 +1348,7 @@ function App() {
         <span className="brand-mark">Selecta</span>
         <h1>Ekspor {count} file</h1>
         <p className="export-sub">
-          File asli di folder sumber tidak diubah, hasil ekspor berupa salinan.
+          File dipindahkan dari folder sumber ke folder tujuan.
         </p>
 
         <div className="export-section">
