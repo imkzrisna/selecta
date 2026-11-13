@@ -3137,3 +3137,24 @@ button.export-go {
     animation: none !important;
   }
 }
+
+/* ---------- Burst: ban berjalan ----------
+   Animasi masuk dimatikan lewat durasi 1ms (bukan animation:none) supaya
+   tidak ada animasi yang restart saat mode burst berakhir. */
+.preview-card.is-burst:not(.exit-left):not(.exit-right):not([class*="undo-"]) {
+  animation-duration: 1ms;
+}
+.preview-box.is-burst .stack-sheet {
+  animation-duration: 1ms;
+  transition-duration: 0.12s;
+}
+.preview-box.is-burst .preview-photo-inner {
+  animation-duration: 1ms;
+  transition-duration: 0s;
+}
+.preview-card.exit-left.is-burst {
+  animation-timing-function: cubic-bezier(0.3, 0, 0.9, 0.6);
+}
+.preview-card.exit-right.is-burst {
+  animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1), linear;
+}

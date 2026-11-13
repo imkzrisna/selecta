@@ -39,7 +39,8 @@ const CARD_POP_IN_MS = 380;
 // Nilai HARUS sama dengan .preview-card.is-burst di App.css (160ms)
 // dan .preview-card.exit-left.is-burst (150ms).
 const BURST_EXIT_MS = 150;
-const BURST_POP_IN_MS = 160;
+const BURST_GATE_MS = 24; // jeda gerbang antar kartu saat burst
+const MAX_PENDING_BURST = 3; // maks. tekanan yang ditampung
 const BURST_WINDOW_MS = 300; // jeda maksimum antar tekanan ← agar dianggap burst
 const BURST_IDLE_MS = 500; // burst berakhir jika tidak ada trigger sepanjang ini
 // Durasi animasi exit normal (single press) — NILAI TIDAK BERUBAH dari
@@ -189,6 +190,11 @@ function App() {
   const exitActive = useRef(false);
   const lastLeftAt = useRef(0);
   const lastRightAt = useRef(0);
+  const pendingDirs = useRef<("left" | "right")[]>([]);
+  const drainRef = useRef<() => void>(() => {});
+  const drainTimer = useRef<number | null>(null);
+  const drainTries = useRef(0);
+  const heldRepeat = useRef(false);
   const burstRef = useRef(false);
   const burstTimer = useRef<number | null>(null);
   const [burst, setBurst] = useState(false);
@@ -843,12 +849,84 @@ function App() {
     // memotong kartu yang masih dalam proses "muncul".
     window.setTimeout(() => {
       exitInProgress.current = false;
-    }, burstRef.current ? BURST_POP_IN_MS : CARD_POP_IN_MS);
+      drainRef.current();
+    }, burstRef.current ? BURST_GATE_MS : CARD_POP_IN_MS);
   }, [exitDir, visibleQueue, handleReject, handleSelect]);
 
   useEffect(() => {
     handleExitAnimationEndRef.current = handleExitAnimationEnd;
   }, [handleExitAnimationEnd]);
+
+  // Eksekusi tekanan yang ditampung selama burst (selalu memakai closure terbaru).
+  useEffect(() => {
+    drainRef.current = () => {
+      if (drainTimer.current !== null) {
+        window.clearTimeout(drainTimer.current);
+        drainTimer.current = null;
+      }
+      if (pendingDirs.current.length === 0) return;
+      if (
+        stage !== "sorting" ||
+        visibleQueue.length === 0 ||
+        zoomPhoto ||
+        fullViewPhoto
+      ) {
+        pendingDirs.current = [];
+        return;
+      }
+      if (exitInProgress.current) return;
+      triggerExit(pendingDirs.current[0], 0, 0, true);
+      if (exitInProgress.current) {
+        pendingDirs.current.shift();
+        drainTries.current = 0;
+      } else if (++drainTries.current > 20) {
+        pendingDirs.current = [];
+        drainTries.current = 0;
+      } else {
+        // Masih terblokir (mis. preview memuat): coba lagi sebentar.
+        drainTimer.current = window.setTimeout(() => drainRef.current(), 30);
+      }
+    };
+  });
+
+  // Satu pintu untuk ← / →: langsung jalan, atau ditampung kalau kartu masih bergerak.
+  const pressDir = useCallback(
+    (dir: "left" | "right", repeat: boolean) => {
+      const now = performance.now();
+      const last = dir === "left" ? lastLeftAt : lastRightAt;
+      const isBurst = repeat || now - last.current < BURST_WINDOW_MS;
+      last.current = now;
+      if (repeat) heldRepeat.current = true;
+      if (exitInProgress.current) {
+        if (isBurst && pendingDirs.current.length < MAX_PENDING_BURST) {
+          pendingDirs.current.push(dir);
+          // Masuk mode burst lebih awal agar gerbang berikutnya cepat.
+          burstRef.current = true;
+          setBurst(true);
+          if (burstTimer.current) window.clearTimeout(burstTimer.current);
+          burstTimer.current = window.setTimeout(() => {
+            burstRef.current = false;
+            setBurst(false);
+          }, BURST_IDLE_MS);
+        }
+        return;
+      }
+      triggerExit(dir, 0, 0, isBurst);
+    },
+    [triggerExit],
+  );
+
+  // Tombol ditahan lalu dilepas: buang sisa antrean supaya berhenti tepat.
+  useEffect(() => {
+    const up = (e: KeyboardEvent) => {
+      if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && heldRepeat.current) {
+        heldRepeat.current = false;
+        pendingDirs.current = [];
+      }
+    };
+    window.addEventListener("keyup", up);
+    return () => window.removeEventListener("keyup", up);
+  }, []);
 
   // --- Drag-to-swipe on the preview card, with velocity tracking so a
   // quick flick clears the card even if it didn't travel far. ---
@@ -934,16 +1012,10 @@ function App() {
 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        const now = performance.now();
-        const isBurst = e.repeat || now - lastLeftAt.current < BURST_WINDOW_MS;
-        lastLeftAt.current = now;
-        triggerExit("left", 0, 0, isBurst);
+        pressDir("left", e.repeat);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        const nowR = performance.now();
-        const isBurstR = e.repeat || nowR - lastRightAt.current < BURST_WINDOW_MS;
-        lastRightAt.current = nowR;
-        triggerExit("right", 0, 0, isBurstR);
+        pressDir("right", e.repeat);
       } else if (e.key === "ArrowDown" && cmdOrCtrl) {
         e.preventDefault();
         if (!compareMode && visibleQueue[0] && exitDir === null) {
@@ -983,6 +1055,7 @@ function App() {
   }, [
     stage,
     triggerExit,
+    pressDir,
     handleUndo,
     toggleImmersive,
     immersive,
@@ -1748,7 +1821,7 @@ function App() {
               </div>
 
               <div
-                className={`preview-box${isExiting ? " is-exiting" : ""}`}
+                className={`preview-box${isExiting ? " is-exiting" : ""}${burst ? " is-burst" : ""}`}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}
