@@ -3031,3 +3031,18 @@ button.export-go {
     animation: none !important;
   }
 }
+
+/* ---------- Mode besar foto: tanpa seleksi saat double-click ---------- */
+.zoom-viewer,
+.zoom-viewer * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.zoom-viewer ::selection,
+.zoom-viewer::selection {
+  background: transparent;
+}
+.zoom-img {
+  -webkit-touch-callout: none;
+}

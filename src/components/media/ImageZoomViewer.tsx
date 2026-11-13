@@ -101,6 +101,8 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
   }, [onClose, zoomCenter, setView]);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    // Klik ganda tidak boleh membentuk seleksi teks/elemen (blok biru).
+    if (e.detail > 1) e.preventDefault();
     if (viewRef.current.scale <= 1) return;
     const v = viewRef.current;
     panStart.current = { x: e.clientX, y: e.clientY, tx: v.tx, ty: v.ty };
@@ -124,6 +126,8 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.getSelection()?.removeAllRanges();
     zoomTo(e.clientX, e.clientY, viewRef.current.scale > 1 ? 1 : 2.5);
   };
 
@@ -137,6 +141,10 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
         onPointerUp={endPan}
         onPointerCancel={endPan}
         onDoubleClick={onDoubleClick}
+        onMouseDown={(e) => {
+          if (e.detail > 1) e.preventDefault();
+        }}
+        onDragStart={(e) => e.preventDefault()}
       >
         <img
           src={src}
