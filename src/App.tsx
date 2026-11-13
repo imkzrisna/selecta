@@ -29,7 +29,7 @@ type Toast = { id: number; message: string };
 const SWIPE_THRESHOLD = 110;
 const VELOCITY_THRESHOLD = 0.55; // px/ms — a fast flick clears even under the distance threshold
 const STACK_DEPTH = 2; // hanya 1 sheet yang tampil membelakangi current
-const HISTORY_LIMIT = 25;
+const HISTORY_LIMIT = 5000;
 // Harus SAMA PERSIS dengan durasi @keyframes card-pop-in di App.css
 // (animation: card-pop-in 0.38s ...). Dipakai untuk menahan guard exit
 // selama kartu baru masih dalam proses animasi "masuk", supaya swipe
@@ -638,6 +638,9 @@ function App() {
   const handleUndo = useCallback(() => {
     const last = history.current[history.current.length - 1];
     if (!last || isProcessing || exitDir) return;
+    // Buang tekanan burst yang masih menunggu supaya tidak menambah
+    // keputusan baru setelah undo.
+    pendingDirs.current = [];
     history.current = history.current.slice(0, -1);
     setCanUndo(history.current.length > 0);
     setUndoFlash(true);
