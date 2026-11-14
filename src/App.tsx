@@ -603,6 +603,9 @@ function App() {
       await prefetchAllImages(photos, (done, total) => {
         setPrepareProgress({ done, total });
       });
+      // Thumbnail PDF/video untuk semua file (antre satu per satu).
+      const docs = startQueue.filter((p) => p.kind === "pdf" || p.kind === "video");
+      docs.forEach((p) => prefetchThumb(p.kind as "pdf" | "video", p.path));
       setStage("sorting");
     } catch (e) {
       pushToast(String(e));
@@ -663,6 +666,66 @@ function App() {
   useEffect(() => {
     setScrolledPath(null);
   }, [visibleQueue[0]?.path]);
+
+  // Jendela decode bergulir: 5 kartu berikutnya sudah di-decode di memori.
+  const decodeHold = useRef<Map<string, HTMLImageElement>>(new Map());
+  useEffect(() => {
+    if (stage !== "sorting") return;
+    const win = visibleQueue.slice(0, 5);
+    const keep = new Set<string>();
+    win.forEach((p, i) => {
+      if (p.kind !== "image") return;
+      const hold = (key: string, url: string | undefined) => {
+        if (!url) return;
+        keep.add(key);
+        if (decodeHold.current.has(key)) return;
+        const img = new Image();
+        img.src = url;
+        decodeHold.current.set(key, img);
+        img.decode().catch(() => {});
+      };
+      hold("p:" + p.path, previewCache.current.get(p.path));
+      hold("f:" + p.path, frontFull.current.get(p.path));
+      // prefetch file asli untuk 2 kartu berikutnya
+      if (i < 2 && !frontFull.current.has(p.path)) {
+        invoke<string>("get_full_image", { path: p.path })
+          .then((full) => {
+            const url = convertFileSrc(full);
+            const im = new Image();
+            im.onload = () => {
+              frontFull.current.set(p.path, url);
+              bumpFull();
+            };
+            im.src = url;
+          })
+          .catch(() => {});
+      }
+    });
+    for (const k of Array.from(decodeHold.current.keys())) {
+      if (!keep.has(k)) decodeHold.current.delete(k);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, visibleQueue[0]?.path, visibleQueue[1]?.path, visibleQueue[2]?.path, visibleQueue[3]?.path, visibleQueue[4]?.path]);
+
+  // Pemanasan GPU: ghost tak terlihat sekali saat sorting dimulai.
+  const warmed = useRef(false);
+  useEffect(() => {
+    if (stage !== "sorting" || warmed.current) return;
+    const id = window.setTimeout(() => {
+      const box = cardRef.current?.parentElement;
+      if (!box) return;
+      warmed.current = true;
+      (["left", "right"] as const).forEach((d) => {
+        const g = document.createElement("div");
+        g.className = `preview-card exit-${d} is-ghost`;
+        g.style.cssText = "opacity:0.01;pointer-events:none;inset:3%;";
+        g.innerHTML = '<div class="preview-photo-inner" style="aspect-ratio:1"></div>';
+        box.appendChild(g);
+        window.setTimeout(() => g.remove(), 500);
+      });
+    }, 300);
+    return () => window.clearTimeout(id);
+  }, [stage]);
 
   // Ukuran kartu depan, dipakai untuk menyamakan ukuran kartu belakang.
   const [frontBox, setFrontBox] = useState<{ w: number; h: number } | null>(null);
@@ -1749,6 +1812,8 @@ function App() {
     setSelectedPhotos([]);
     setTrayOpen(false);
     previewCache.current.clear();
+    decodeHold.current.clear();
+    warmed.current = false;
     prefetchGeneration.current++; // hentikan prefetch massal dari sesi sebelumnya
     setPrepareProgress({ done: 0, total: 0 });
     if (immersive) toggleImmersive();
