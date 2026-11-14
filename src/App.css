@@ -3361,3 +3361,16 @@ body {
 .stack-sheet {
   opacity: 0.8;
 }
+
+/* ---------- Bingkai foto = ukuran foto (tanpa padding/border) ----------
+   Padding+border ikut dihitung dalam aspect-ratio, sehingga foto sangat
+   sempit membuat bingkai lebih tinggi dari fotonya. Bingkai diganti
+   cincin box-shadow yang tidak memengaruhi ukuran. */
+.preview-photo-inner:not(:has(> .pdf-viewer-compact)) {
+  padding: 0;
+  border: none;
+  box-shadow:
+    0 0 0 3px var(--surface-sunken),
+    0 0 0 4px var(--border),
+    0 8px 22px rgba(20, 20, 15, 0.1);
+}
