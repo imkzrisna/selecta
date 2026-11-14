@@ -24,13 +24,34 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
   const inertiaRef = useRef<number | null>(null);
   const smoothTimer = useRef<number | null>(null);
 
+  // Ukuran dasar (pas layar) dalam px CSS; zoom = dasar x scale lewat width/height.
+  const baseRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const maxScale = () => {
+    const img = imgRef.current;
+    const b = baseRef.current;
+    if (!img || !b.w) return MAX_SCALE;
+    return Math.max(MAX_SCALE, (4 * img.naturalWidth) / b.w);
+  };
+  const oneToOne = () => {
+    const img = imgRef.current;
+    const b = baseRef.current;
+    return img && b.w ? Math.max(2, img.naturalWidth / b.w) : 2.5;
+  };
+  const pixelPct = (scale: number) => {
+    const img = imgRef.current;
+    const b = baseRef.current;
+    return img && img.naturalWidth && b.w
+      ? Math.round(((b.w * scale) / img.naturalWidth) * 100)
+      : Math.round(scale * 100);
+  };
+
   // Batas geser: gambar tidak boleh keluar dari area pandang.
   const clampView = useCallback((v: View): View => {
     const stage = stageRef.current;
     const img = imgRef.current;
     if (!stage || !img || v.scale <= 1) return { scale: v.scale, tx: 0, ty: 0 };
-    const maxX = Math.max(0, (img.offsetWidth * v.scale - stage.clientWidth) / 2);
-    const maxY = Math.max(0, (img.offsetHeight * v.scale - stage.clientHeight) / 2);
+    const maxX = Math.max(0, (baseRef.current.w * v.scale - stage.clientWidth) / 2);
+    const maxY = Math.max(0, (baseRef.current.h * v.scale - stage.clientHeight) / 2);
     return {
       scale: v.scale,
       tx: Math.min(maxX, Math.max(-maxX, v.tx)),
@@ -43,12 +64,39 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
     const img = imgRef.current;
     if (!img) return;
     const { scale, tx, ty } = viewRef.current;
-    img.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`;
+    const b = baseRef.current;
+    if (b.w) {
+      img.style.width = `${b.w * scale}px`;
+      img.style.height = `${b.h * scale}px`;
+    }
+    img.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
   }, []);
 
   const schedule = useCallback(() => {
     if (rafRef.current === null) rafRef.current = requestAnimationFrame(paint);
   }, [paint]);
+
+  const fitBase = useCallback(() => {
+    const stage = stageRef.current;
+    const img = imgRef.current;
+    if (!stage || !img || !img.naturalWidth) return;
+    const f = Math.min(
+      (stage.clientWidth * 0.96) / img.naturalWidth,
+      (stage.clientHeight * 0.92) / img.naturalHeight,
+    );
+    baseRef.current = { w: img.naturalWidth * f, h: img.naturalHeight * f };
+    img.style.maxWidth = "none";
+    img.style.maxHeight = "none";
+    viewRef.current = clampView(viewRef.current);
+    setLabel(pixelPct(viewRef.current.scale));
+    paint();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clampView, paint]);
+
+  useEffect(() => {
+    window.addEventListener("resize", fitBase);
+    return () => window.removeEventListener("resize", fitBase);
+  }, [fitBase]);
 
   const stopInertia = useCallback(() => {
     if (inertiaRef.current !== null) {
@@ -65,7 +113,8 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
       if (img) {
         if (smoothTimer.current) window.clearTimeout(smoothTimer.current);
         if (smooth) {
-          img.style.transition = "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
+          img.style.transition =
+            "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), width 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
           smoothTimer.current = window.setTimeout(() => {
             if (imgRef.current) imgRef.current.style.transition = "none";
           }, 300);
@@ -74,7 +123,7 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
         }
       }
       viewRef.current = clampView(v);
-      setLabel(Math.round(viewRef.current.scale * 100));
+      setLabel(pixelPct(viewRef.current.scale));
       setZoomed(viewRef.current.scale > 1);
       schedule();
     },
@@ -89,7 +138,7 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
       const px = clientX - rect.left - rect.width / 2;
       const py = clientY - rect.top - rect.height / 2;
       const { scale, tx, ty } = viewRef.current;
-      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, target));
+      const next = Math.min(maxScale(), Math.max(MIN_SCALE, target));
       if (next === scale) return;
       if (next === MIN_SCALE) {
         apply({ scale: 1, tx: 0, ty: 0 }, smooth);
@@ -233,7 +282,7 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
   const onDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     window.getSelection()?.removeAllRanges();
-    zoomTo(e.clientX, e.clientY, viewRef.current.scale > 1 ? 1 : 2.5, true);
+    zoomTo(e.clientX, e.clientY, viewRef.current.scale > 1 ? 1 : oneToOne(), true);
   };
 
   return (
@@ -257,7 +306,8 @@ export default function ImageZoomViewer({ src, name, onClose }: Props) {
           alt={name}
           className="zoom-img"
           draggable={false}
-          style={{ transform: "translate3d(0,0,0) scale(1)", transition: "none" }}
+          onLoad={fitBase}
+          style={{ transform: "translate3d(0,0,0)", transition: "none" }}
         />
       </div>
 
