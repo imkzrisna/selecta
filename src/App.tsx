@@ -113,7 +113,7 @@ function longKindOf(r: number | null | undefined): "tall" | "wide" | undefined {
 }
 function shapeRatio(r: number): number {
   const k = longKindOf(r);
-  return k === "tall" ? 3 / 4 : k === "wide" ? 4 / 3 : r;
+  return k === "tall" ? 0.72 : k === "wide" ? 4 / 3 : r;
 }
 
 function backCardStyle(
