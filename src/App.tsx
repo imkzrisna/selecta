@@ -31,6 +31,9 @@ const SWIPE_THRESHOLD = 110;
 const VELOCITY_THRESHOLD = 0.55; // px/ms — a fast flick clears even under the distance threshold
 const STACK_DEPTH = 2; // hanya 1 sheet yang tampil membelakangi current
 const HISTORY_LIMIT = 5000;
+// Jendela decode: preview (ringan) lebih luas, file asli (berat) dibatasi.
+const DECODE_PREVIEW_WINDOW = 20;
+const DECODE_FULL_WINDOW = 3;
 // false = kartu tidak bisa di-swipe dengan kursor; hanya ← / → di keyboard.
 const DRAG_SWIPE_ENABLED = false as boolean;
 // Harus SAMA PERSIS dengan durasi @keyframes card-pop-in di App.css
@@ -671,7 +674,7 @@ function App() {
   const decodeHold = useRef<Map<string, HTMLImageElement>>(new Map());
   useEffect(() => {
     if (stage !== "sorting") return;
-    const win = visibleQueue.slice(0, 5);
+    const win = visibleQueue.slice(0, DECODE_PREVIEW_WINDOW);
     const keep = new Set<string>();
     win.forEach((p, i) => {
       if (p.kind !== "image") return;
@@ -685,7 +688,7 @@ function App() {
         img.decode().catch(() => {});
       };
       hold("p:" + p.path, previewCache.current.get(p.path));
-      hold("f:" + p.path, frontFull.current.get(p.path));
+      if (i < DECODE_FULL_WINDOW) hold("f:" + p.path, frontFull.current.get(p.path));
       // prefetch file asli untuk 2 kartu berikutnya
       if (i < 2 && !frontFull.current.has(p.path)) {
         invoke<string>("get_full_image", { path: p.path })
@@ -705,7 +708,7 @@ function App() {
       if (!keep.has(k)) decodeHold.current.delete(k);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, visibleQueue[0]?.path, visibleQueue[1]?.path, visibleQueue[2]?.path, visibleQueue[3]?.path, visibleQueue[4]?.path]);
+  }, [stage, visibleQueue[0]?.path, visibleQueue.length]);
 
   // Pemanasan GPU: ghost tak terlihat sekali saat sorting dimulai.
   const warmed = useRef(false);
