@@ -192,6 +192,7 @@ function App() {
   // Foto yang sedang dibuka di mode besar (zoom pinch).
   const [zoomPhoto, setZoomPhoto] = useState<PhotoEntry | null>(null);
   // Sumber resolusi penuh untuk mode besar (menggantikan preview 2048px).
+  const [scrolledPath, setScrolledPath] = useState<string | null>(null);
   const [zoomFullSrc, setZoomFullSrc] = useState("");
   useEffect(() => {
     setZoomFullSrc("");
@@ -592,6 +593,11 @@ function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, visibleQueue[0]?.path]);
+
+  // reset petunjuk gulir: muncul lagi setiap kartu depan berganti (undo / putaran 2)
+  useEffect(() => {
+    setScrolledPath(null);
+  }, [visibleQueue[0]?.path]);
 
   // Ukuran kartu depan, dipakai untuk menyamakan ukuran kartu belakang.
   const [frontBox, setFrontBox] = useState<{ w: number; h: number } | null>(null);
@@ -2271,6 +2277,14 @@ function App() {
                             ? { aspectRatio: `${shapedRatio}` }
                             : undefined
                         }
+                        onScroll={(e) => {
+                          if (!longKind || !current) return;
+                          const el = e.currentTarget;
+                          const moved = longKind === "tall" ? el.scrollTop : el.scrollLeft;
+                          if (moved > 24 && scrolledPath !== current.path) {
+                            setScrolledPath(current.path);
+                          }
+                        }}
                         onClick={() => {
                           if (
                             current &&
@@ -2346,6 +2360,12 @@ function App() {
                           />
                         )}
                       </div>
+                      {longKind && current && scrolledPath !== current.path && (
+                        <span className={`scroll-hint scroll-hint-${longKind} mono`} aria-hidden="true">
+                          <span className="scroll-hint-arrow">{longKind === "tall" ? "↓" : "→"}</span>
+                          Gulir
+                        </span>
+                      )}
                       {current && (
                         <span className="frame-counter mono">
                           {String(frameNumber).padStart(3, "0")} /{" "}

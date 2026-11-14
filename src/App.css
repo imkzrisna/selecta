@@ -3422,3 +3422,114 @@ body {
   max-width: 100%;
   max-height: none;
 }
+
+/* ---------- Petunjuk foto bisa di-scroll ---------- */
+.preview-card {
+  /* anchor untuk pil petunjuk */
+  position: absolute;
+}
+.scroll-hint {
+  position: absolute;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: rgba(20, 20, 24, 0.72);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: scroll-hint-in 0.3s ease 0.2s backwards;
+}
+.scroll-hint-tall {
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+}
+.scroll-hint-wide {
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.scroll-hint-arrow {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1;
+}
+.scroll-hint-tall .scroll-hint-arrow {
+  animation: hint-bob-y 1.1s ease-in-out infinite;
+}
+.scroll-hint-wide .scroll-hint-arrow {
+  animation: hint-bob-x 1.1s ease-in-out infinite;
+}
+@keyframes hint-bob-y {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(3px); }
+}
+@keyframes hint-bob-x {
+  0%, 100% { transform: translateX(-2px); }
+  50% { transform: translateX(3px); }
+}
+@keyframes scroll-hint-in {
+  from { opacity: 0; }
+}
+
+/* Gradasi tipis di tepi tempat isi masih berlanjut */
+.preview-photo-inner.is-long-tall::after,
+.preview-photo-inner.is-long-wide::after {
+  content: "";
+  position: sticky;
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.preview-photo-inner.is-long-tall::after {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 56px;
+  margin-top: -56px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+}
+.preview-photo-inner.is-long-wide::after {
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 56px;
+  margin-left: -56px;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.35), transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-hint,
+  .scroll-hint-arrow {
+    animation: none !important;
+  }
+}
+
+/* ---------- Foto panjang: gambar pas bingkai, tanpa centering yang memotong ---------- */
+.preview-photo-inner.is-long-tall,
+.preview-photo-inner.is-long-wide {
+  display: block;
+  position: relative;
+}
+.preview-photo-inner.is-long-tall .preview-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: none;
+}
+.preview-photo-inner.is-long-wide {
+  white-space: nowrap;
+}
+.preview-photo-inner.is-long-wide .preview-img {
+  display: inline-block;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  max-height: 100%;
+  vertical-align: top;
+}
