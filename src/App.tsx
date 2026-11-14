@@ -1464,19 +1464,34 @@ function App() {
     if (stage === "review" && prevStage.current === "sorting") {
       setReviewOrder([...selectedPhotos].reverse().map((p) => p.path));
       setApproved([]);
+      reviewHist.current = [];
+      setReviewUndoCount(0);
     }
     prevStage.current = stage;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
+  type ReviewAct =
+    | { type: "back"; prevOrder: string[] }
+    | { type: "accept"; path: string }
+    | { type: "eject"; photo: PhotoEntry; prevOrder: string[] };
+  const reviewHist = useRef<ReviewAct[]>([]);
+  const [reviewUndoCount, setReviewUndoCount] = useState(0);
+  const pushReviewHist = (a: ReviewAct) => {
+    reviewHist.current = [...reviewHist.current, a];
+    setReviewUndoCount(reviewHist.current.length);
+  };
+
   const reviewBack = useCallback(() => {
     const c = reviewPending[0];
     if (!c || reviewPending.length < 2) return;
+    pushReviewHist({ type: "back", prevOrder: reviewAll.map((p) => p.path) });
     setReviewOrder([...reviewAll.map((p) => p.path).filter((x) => x !== c.path), c.path]);
   }, [reviewPending, reviewAll]);
   const reviewAccept = useCallback(() => {
     const c = reviewPending[0];
     if (!c) return;
+    pushReviewHist({ type: "accept", path: c.path });
     setApproved((prev) => [...prev, c.path]);
   }, [reviewPending]);
   const [reviewCardEl, setReviewCardEl] = useState<HTMLDivElement | null>(null);
@@ -1521,9 +1536,29 @@ function App() {
   const reviewEject = useCallback(() => {
     const c = reviewPending[0];
     if (!c) return;
+    pushReviewHist({ type: "eject", photo: c, prevOrder: reviewAll.map((p) => p.path) });
     setApproved((prev) => prev.filter((x) => x !== c.path));
     handleRemoveSelected(c);
-  }, [reviewPending, handleRemoveSelected]);
+  }, [reviewPending, reviewAll, handleRemoveSelected]);
+
+  const reviewUndo = useCallback(() => {
+    const last = reviewHist.current[reviewHist.current.length - 1];
+    if (!last || isProcessing) return;
+    reviewHist.current = reviewHist.current.slice(0, -1);
+    setReviewUndoCount(reviewHist.current.length);
+    if (last.type === "back") {
+      setReviewOrder(last.prevOrder);
+    } else if (last.type === "accept") {
+      setApproved((prev) => prev.filter((x) => x !== last.path));
+    } else {
+      const ph = last.photo;
+      setQueue((prev) => prev.filter((p) => p.path !== ph.path));
+      setSelectedPhotos((prev) => [ph, ...prev.filter((p) => p.path !== ph.path)]);
+      setSelectedCount((c) => c + 1);
+      setReviewOrder(last.prevOrder);
+      recordHistory({ type: "select", photo: ph });
+    }
+  }, [isProcessing, recordHistory]);
 
   useEffect(() => {
     if (stage !== "review") return;
@@ -1534,20 +1569,26 @@ function App() {
       if (e.key === "Escape") {
         e.preventDefault();
         setStage("sorting");
+      } else if (
+        ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) ||
+        e.key === "Backspace"
+      ) {
+        e.preventDefault();
+        reviewUndo();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         reviewBack();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         reviewAccept();
-      } else if (e.key === "ArrowDown" || e.key === "Backspace" || e.key === "Delete") {
+      } else if (e.key === "ArrowDown") {
         e.preventDefault();
         reviewEject();
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [stage, isProcessing, reviewBack, reviewAccept, reviewEject]);
+  }, [stage, isProcessing, reviewBack, reviewAccept, reviewEject, reviewUndo]);
 
   const resetApp = () => {
     if (sourceFolder) invoke("clear_session", { key: sourceFolder }).catch(() => {});
@@ -1697,6 +1738,14 @@ function App() {
             Disetujui <span className="stat-value">{approvedCount}</span> / {all.length}
           </span>
           <div className="top-bar-actions">
+            <button
+              className="ghost-btn"
+              onClick={reviewUndo}
+              disabled={isProcessing || reviewUndoCount === 0}
+              title="Batalkan keputusan terakhir (⌘Z)"
+            >
+              Batal
+            </button>
             <button
               className="primary review-save"
               onClick={() => setStage("export")}
@@ -1918,7 +1967,7 @@ function App() {
             </button>
           </div>
           <p className="hint mono">
-            <kbd>←</kbd> ke belakang · <kbd>→</kbd> acc · <kbd>↓</kbd> keluarkan · <kbd>Esc</kbd> kembali
+            <kbd>←</kbd> ke belakang · <kbd>→</kbd> acc · <kbd>↓</kbd> keluarkan · <kbd>⌘Z</kbd> batal · <kbd>Esc</kbd> kembali
           </p>
         </div>
       </div>
