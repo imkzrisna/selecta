@@ -3344,3 +3344,20 @@ body {
 .preview-box:active {
   cursor: default;
 }
+
+/* ---------- Bingkai tipis ---------- */
+.preview-photo-inner:not(:has(> .pdf-viewer-compact)) {
+  padding: 3px;
+  border-radius: 8px;
+  box-shadow:
+    0 1px 2px rgba(20, 20, 15, 0.05),
+    0 8px 20px rgba(20, 20, 15, 0.08);
+}
+.stack-sheet-inner > .stack-sheet-thumb {
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    0 4px 10px rgba(20, 20, 15, 0.08);
+}
+.stack-sheet {
+  opacity: 0.8;
+}

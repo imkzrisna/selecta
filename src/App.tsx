@@ -109,7 +109,7 @@ function backCardStyle(
   if (!r) return undefined;
   if (!box || !box.w || !box.h) return { aspectRatio: `${r}` };
   // Muat rasio asli ke dalam area kartu (box = area tersedia), skala 0.9.
-  const w = Math.min(box.w * 0.9, box.h * 0.9 * r);
+  const w = Math.min(box.w * 0.8, box.h * 0.8 * r);
   return {
     aspectRatio: `${r}`,
     width: w,
