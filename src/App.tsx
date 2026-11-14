@@ -7,7 +7,7 @@ import {
   useReducer,
 } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
 import PdfViewer from "./components/media/PdfViewer";
@@ -518,6 +518,27 @@ function App() {
   );
 
   // --- Mulai proses: load semua foto dari folder sumber ---
+  // Simpan sesi otomatis (jeda 600ms); hapus kalau tidak ada keputusan.
+  useEffect(() => {
+    if (!sourceFolder || !["sorting", "review", "export"].includes(stage)) return;
+    const timer = window.setTimeout(() => {
+      if (selectedPhotos.length === 0 && history.current.length === 0) {
+        invoke("clear_session", { key: sourceFolder }).catch(() => {});
+        return;
+      }
+      const data = JSON.stringify({
+        queue: queue.map((p) => p.path),
+        selected: selectedPhotos.map((p) => p.path),
+        renames,
+        history: history.current.map((h) => ({ type: h.type, path: h.photo.path })),
+      });
+      invoke("save_session", { key: sourceFolder, data }).catch((e) =>
+        console.warn("Gagal menyimpan sesi:", e),
+      );
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [stage, sourceFolder, queue, selectedPhotos, renames]);
+
   const startSorting = async () => {
     try {
       const photos = await invoke<PhotoEntry[]>("list_photos", {
@@ -530,9 +551,51 @@ function App() {
       history.current = [];
       setCanUndo(false);
       setMediaFilter("all");
-      setQueue(photos);
+      let startQueue = photos;
+      let startSelected: PhotoEntry[] = [];
+      let startRenames: Record<string, string> = {};
+      try {
+        const raw = await invoke<string | null>("load_session", { key: sourceFolder });
+        if (raw) {
+          const s = JSON.parse(raw);
+          const map = new Map(photos.map((p) => [p.path, p]));
+          const pick = (arr: string[]) =>
+            (arr ?? []).map((x) => map.get(x)).filter(Boolean) as PhotoEntry[];
+          const sel = pick(s.selected);
+          const selSet = new Set(sel.map((p) => p.path));
+          const q = pick(s.queue).filter((p) => !selSet.has(p.path));
+          const qSet = new Set(q.map((p) => p.path));
+          const rest = photos.filter((p) => !selSet.has(p.path) && !qSet.has(p.path));
+          const hist: HistoryEntry[] = (s.history ?? [])
+            .map((h: { type: "reject" | "select"; path: string }) => {
+              const photo = map.get(h.path);
+              return photo ? { type: h.type, photo } : null;
+            })
+            .filter(Boolean) as HistoryEntry[];
+          if (sel.length > 0 || hist.length > 0) {
+            const yes = await ask(
+              `Ada sesi sebelumnya untuk folder ini: ${sel.length} terpilih, ${q.length + rest.length} tersisa. Lanjutkan?`,
+              { title: "Lanjutkan sesi", kind: "info", okLabel: "Lanjutkan", cancelLabel: "Mulai dari awal" },
+            );
+            if (yes) {
+              startQueue = [...q, ...rest];
+              startSelected = sel;
+              startRenames = s.renames ?? {};
+              history.current = hist;
+              setCanUndo(hist.length > 0);
+            } else {
+              await invoke("clear_session", { key: sourceFolder });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Gagal memulihkan sesi:", e);
+      }
+      setQueue(startQueue);
+      setSelectedPhotos(startSelected);
+      setRenames(startRenames);
       setTotalLoaded(photos.length);
-      setSelectedCount(0);
+      setSelectedCount(startSelected.length);
       setStage("preparing");
       setPrepareProgress({ done: 0, total: 0 });
       await prefetchAllImages(photos, (done, total) => {
@@ -1367,6 +1430,7 @@ function App() {
       }
       if (res.ok > 0) {
         setExportOutput(res.output);
+        invoke("clear_session", { key: sourceFolder }).catch(() => {});
         history.current = [];
         setCanUndo(false);
         setStage("done");
@@ -1410,6 +1474,7 @@ function App() {
   }, [stage, isProcessing, selectedPhotos, reviewIndex, handleRemoveSelected]);
 
   const resetApp = () => {
+    if (sourceFolder) invoke("clear_session", { key: sourceFolder }).catch(() => {});
     setStage("setup");
     setSourceFolder("");
     setDestFolder("");

@@ -659,6 +659,34 @@ fn get_full_image(path: String, app: AppHandle) -> Result<String, String> {
     Ok(out.to_string_lossy().to_string())
 }
 
+// 6. Sesi: simpan / baca / hapus pilihan yang belum diekspor.
+fn session_file(app: &AppHandle, key: &str) -> Result<PathBuf, String> {
+    let dir = cache::cache_dir(app)?.join("sessions");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join(format!("{}.json", cache::hash_path(key))))
+}
+
+#[tauri::command]
+fn save_session(key: String, data: String, app: AppHandle) -> Result<(), String> {
+    let f = session_file(&app, &key)?;
+    let tmp = f.with_extension("tmp");
+    fs::write(&tmp, data).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &f).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn load_session(key: String, app: AppHandle) -> Result<Option<String>, String> {
+    let f = session_file(&app, &key)?;
+    Ok(fs::read_to_string(f).ok())
+}
+
+#[tauri::command]
+fn clear_session(key: String, app: AppHandle) -> Result<(), String> {
+    let f = session_file(&app, &key)?;
+    let _ = fs::remove_file(f);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -673,6 +701,9 @@ pub fn run() {
             move_photo,
             scan_media,
             export_files,
+            save_session,
+            load_session,
+            clear_session,
             get_full_image
         ])
         .run(tauri::generate_context!())
