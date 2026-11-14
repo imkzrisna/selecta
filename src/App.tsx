@@ -564,6 +564,35 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, visibleQueue[0]?.path, visibleQueue[1]?.path, visibleQueue[2]?.path, visibleQueue[3]?.path]);
 
+  // Kartu depan memakai file ASLI (tanpa kompresi); preview kecil hanya cadangan.
+  const frontFull = useRef<Map<string, string>>(new Map());
+  const [, bumpFull] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (stage !== "sorting") return;
+    const cur = visibleQueue[0];
+    if (!cur || cur.kind !== "image" || frontFull.current.has(cur.path)) return;
+    let cancelled = false;
+    invoke<string>("get_full_image", { path: cur.path })
+      .then((full) => {
+        const url = convertFileSrc(full);
+        const img = new Image();
+        img.onload = () => {
+          frontFull.current.set(cur.path, url);
+          if (frontFull.current.size > 40) {
+            const k = frontFull.current.keys().next().value;
+            if (k !== undefined) frontFull.current.delete(k);
+          }
+          if (!cancelled) bumpFull();
+        };
+        img.src = url;
+      })
+      .catch((e) => console.warn("Gagal memuat file asli:", e));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, visibleQueue[0]?.path]);
+
   // Ukuran kartu depan, dipakai untuk menyamakan ukuran kartu belakang.
   const [frontBox, setFrontBox] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
@@ -2290,7 +2319,11 @@ function App() {
                           />
                         ) : (
                           <img
-                            src={previewCache.current.get(current?.path ?? "") ?? previewSrc}
+                            src={
+                              frontFull.current.get(current?.path ?? "") ??
+                              previewCache.current.get(current?.path ?? "") ??
+                              previewSrc
+                            }
                             alt={current?.name}
                             className="preview-img"
                             draggable={false}
