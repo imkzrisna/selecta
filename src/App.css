@@ -3320,3 +3320,21 @@ body {
   z-index: 4;
   pointer-events: none;
 }
+
+/* ---------- PDF kartu depan: tampil lebih besar ---------- */
+.preview-card:has(.pdf-viewer-compact) {
+  inset: 0;
+}
+.preview-photo-inner:has(> .pdf-viewer-compact) {
+  padding: 4px;
+  border-radius: 8px;
+}
+.preview-photo-inner:has(> .pdf-viewer-compact) > .pdf-viewer-compact {
+  inset: 4px;
+}
+.pdf-viewer-compact .pdf-compact-scroll {
+  padding: 4px;
+}
+.preview-box:has(.pdf-viewer-compact) {
+  margin-top: 20px;
+}

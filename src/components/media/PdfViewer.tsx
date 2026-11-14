@@ -98,7 +98,7 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
     const el = containerScrollRef.current;
     const base = baseSize.current;
     if (!el || !base) return 1;
-    const avail = Math.max(120, el.clientWidth - (compact ? 28 : 56));
+    const avail = Math.max(120, el.clientWidth - (compact ? 12 : 56));
     const cap = compact ? MAX_SCALE : FULL_FIT_CAP;
     const byWidth = avail / base.w;
     if (!compact && el.clientHeight > 80) {
@@ -108,7 +108,7 @@ export default function PdfViewer({ path, compact = false, onDimensionsChange }:
     }
     if (compact && el.clientHeight > 80) {
       // Kartu queue: seluruh halaman pertama harus terlihat (lebar DAN tinggi).
-      const availH = Math.max(120, el.clientHeight - 24);
+      const availH = Math.max(120, el.clientHeight - 10);
       return clamp(Math.min(byWidth, availH / base.h), MIN_SCALE, cap);
     }
     return clamp(byWidth, MIN_SCALE, cap);
