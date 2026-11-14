@@ -1479,6 +1479,45 @@ function App() {
     if (!c) return;
     setApproved((prev) => [...prev, c.path]);
   }, [reviewPending]);
+  const [reviewCardEl, setReviewCardEl] = useState<HTMLDivElement | null>(null);
+  const [reviewBox, setReviewBox] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!reviewCardEl) return;
+    const upd = () =>
+      setReviewBox((prev) =>
+        prev &&
+        Math.abs(prev.w - reviewCardEl.offsetWidth) < 1 &&
+        Math.abs(prev.h - reviewCardEl.offsetHeight) < 1
+          ? prev
+          : { w: reviewCardEl.offsetWidth, h: reviewCardEl.offsetHeight },
+      );
+    const ro = new ResizeObserver(upd);
+    ro.observe(reviewCardEl);
+    upd();
+    return () => ro.disconnect();
+  }, [reviewCardEl]);
+  useEffect(() => {
+    if (stage !== "review") return;
+    const c = reviewPending[0];
+    if (!c || c.kind !== "image" || frontFull.current.has(c.path)) return;
+    let cancelled = false;
+    invoke<string>("get_full_image", { path: c.path })
+      .then((full) => {
+        const url = convertFileSrc(full);
+        const img = new Image();
+        img.onload = () => {
+          frontFull.current.set(c.path, url);
+          if (!cancelled) bumpFull();
+        };
+        img.src = url;
+      })
+      .catch((e) => console.warn("Gagal memuat file asli:", e));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, reviewPending[0]?.path]);
+
   const reviewEject = useCallback(() => {
     const c = reviewPending[0];
     if (!c) return;
@@ -1643,7 +1682,6 @@ function App() {
         prev[cur.path] === r ? prev : { ...prev, [cur.path]: r },
       );
     };
-    const ratioOf = (path: string) => stackAspectRatios[path] ?? 3 / 4;
     return (
       <div className="container review-screen">
         {ToastStack}
@@ -1676,7 +1714,7 @@ function App() {
                 key={behind.path}
                 className="stack-sheet"
                 style={{
-                  transform: "translate(-7%, -7%) rotate(-3deg) scale(0.95)",
+                  transform: `translate(-7%, -7%) rotate(${-3 + seededOffset(behind.path, 1).rotate * 0.5}deg) scale(0.95)`,
                   transformOrigin: "80% 80%",
                   zIndex: 1,
                   opacity: 0.86,
@@ -1688,62 +1726,100 @@ function App() {
               >
                 <div
                   className="stack-sheet-inner"
-                  style={{ aspectRatio: `${ratioOf(behind.path)}` }}
+                  data-kind={behind.kind}
+                  data-long={longKindOf(stackAspectRatios[behind.path])}
+                  style={backCardStyle(stackAspectRatios[behind.path], reviewBox)}
                 >
-                  {behind.kind === "image" &&
-                    previewCache.current.get(behind.path) && (
-                      <img
-                        src={previewCache.current.get(behind.path)}
-                        alt=""
-                        className="stack-sheet-thumb is-loaded"
-                        draggable={false}
-                        onLoad={(e) => {
-                          const img = e.currentTarget;
-                          if (img.naturalWidth && img.naturalHeight) {
-                            const r = img.naturalWidth / img.naturalHeight;
-                            setStackAspectRatios((prev) =>
-                              prev[behind.path] === r
-                                ? prev
-                                : { ...prev, [behind.path]: r },
-                            );
-                          }
-                        }}
-                      />
-                    )}
+                  {behind.kind !== "image" && (
+                    <BackThumb
+                      kind={behind.kind}
+                      path={behind.path}
+                      name={behind.name}
+                      onRatio={(r) =>
+                        setStackAspectRatios((prev) =>
+                          prev[behind.path] === r ? prev : { ...prev, [behind.path]: r },
+                        )
+                      }
+                    />
+                  )}
+                  {behind.kind === "image" && previewCache.current.get(behind.path) && (
+                    <img
+                      src={previewCache.current.get(behind.path)}
+                      alt=""
+                      className="stack-sheet-thumb is-loaded"
+                      draggable={false}
+                      onLoad={(e) => {
+                        const img = e.currentTarget;
+                        if (img.naturalWidth && img.naturalHeight) {
+                          const r = img.naturalWidth / img.naturalHeight;
+                          setStackAspectRatios((prev) =>
+                            prev[behind.path] === r ? prev : { ...prev, [behind.path]: r },
+                          );
+                        }
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             )}
 
             {cur ? (
-              <div key={cur.path} className="preview-card" style={{ zIndex: 2 }}>
-                <div
-                  className="preview-photo-inner no-resize-anim"
-                  style={{ aspectRatio: `${ratioOf(cur.path)}` }}
-                >
-                  {cur.kind === "pdf" ? (
-                    <PdfViewer path={cur.path} compact onDimensionsChange={setRatio} />
-                  ) : cur.kind === "video" ? (
-                    <VideoViewer path={cur.path} compact onDimensionsChange={setRatio} />
-                  ) : previewCache.current.get(cur.path) ? (
-                    <img
-                      src={previewCache.current.get(cur.path)}
-                      alt={cur.name}
-                      className="preview-img"
-                      draggable={false}
-                      onLoad={(e) => {
-                        const img = e.currentTarget;
-                        if (img.naturalWidth && img.naturalHeight) {
-                          setRatio(img.naturalWidth / img.naturalHeight);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <span className="mono photo-lightbox-fallback">
-                      Preview tidak tersedia
+              (() => {
+                const baseR =
+                  stackAspectRatios[cur.path] ??
+                  (cur.kind === "pdf" ? 0.707 : cur.kind === "video" ? 16 / 9 : undefined);
+                const lk = cur.kind === "image" ? longKindOf(baseR) : undefined;
+                const shaped = baseR ? shapeRatio(baseR) : undefined;
+                const rot = -3 + seededOffset(cur.path, 1).rotate * 0.5;
+                const src =
+                  frontFull.current.get(cur.path) ?? previewCache.current.get(cur.path);
+                return (
+                  <div
+                    key={cur.path}
+                    ref={setReviewCardEl}
+                    className="preview-card"
+                    style={{
+                      zIndex: 3,
+                      ["--enter-rot" as string]: `${rot}deg`,
+                    }}
+                  >
+                    <div
+                      className={
+                        "preview-photo-inner no-resize-anim" +
+                        (lk ? ` is-long-${lk}` : "")
+                      }
+                      style={shaped ? { aspectRatio: `${shaped}` } : undefined}
+                    >
+                      {cur.kind === "pdf" ? (
+                        <PdfViewer path={cur.path} compact onDimensionsChange={setRatio} />
+                      ) : cur.kind === "video" ? (
+                        <VideoViewer path={cur.path} compact onDimensionsChange={setRatio} />
+                      ) : src ? (
+                        <img
+                          src={src}
+                          alt={cur.name}
+                          className="preview-img"
+                          draggable={false}
+                          onLoad={(e) => {
+                            const img = e.currentTarget;
+                            if (img.naturalWidth && img.naturalHeight) {
+                              setRatio(img.naturalWidth / img.naturalHeight);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="mono photo-lightbox-fallback">
+                          Preview tidak tersedia
+                        </span>
+                      )}
+                    </div>
+                    <span className="frame-counter mono">
+                      {String(approvedCount + 1).padStart(3, "0")} /{" "}
+                      {String(all.length).padStart(3, "0")}
                     </span>
-                  )}
-                </div>
-              </div>
+                  </div>
+                );
+              })()
             ) : (
               <div className="preview-placeholder empty-state" style={{ zIndex: 2 }}>
                 <span className="empty-title">{all.length > 0 ? "Semua sudah diperiksa" : "Tidak ada foto terpilih"}</span>
