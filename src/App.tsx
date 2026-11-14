@@ -215,7 +215,9 @@ function App() {
     };
   }, [zoomPhoto]);
   // Halaman review: index foto yang sedang dicek + total yang sudah tersimpan.
-  const [reviewIndex, setReviewIndex] = useState(0);
+  const [, setReviewIndex] = useState(0);
+  const [reviewOrder, setReviewOrder] = useState<string[]>([]);
+  const [approved, setApproved] = useState<string[]>([]);
   const savedTotal = useRef(0);
   // Nama baru (tanpa ekstensi) per path, diterapkan saat Simpan.
   const [renames, setRenames] = useState<Record<string, string>>({});
@@ -1442,36 +1444,71 @@ function App() {
     }
   };
 
-  // --- Keyboard halaman review: ← → navigasi, Backspace keluarkan ---
+  // --- Antrean review: ← ke belakang, → ACC, ↓ keluarkan dari terpilih ---
+  const reviewAll = useMemo(() => {
+    const byPath = new Map(selectedPhotos.map((p) => [p.path, p]));
+    const ordered = reviewOrder
+      .map((x) => byPath.get(x))
+      .filter(Boolean) as PhotoEntry[];
+    const inOrder = new Set(ordered.map((p) => p.path));
+    const rest = [...selectedPhotos].reverse().filter((p) => !inOrder.has(p.path));
+    return [...ordered, ...rest];
+  }, [selectedPhotos, reviewOrder]);
+  const reviewPending = useMemo(
+    () => reviewAll.filter((p) => !approved.includes(p.path)),
+    [reviewAll, approved],
+  );
+
+  const prevStage = useRef(stage);
+  useEffect(() => {
+    if (stage === "review" && prevStage.current === "sorting") {
+      setReviewOrder([...selectedPhotos].reverse().map((p) => p.path));
+      setApproved([]);
+    }
+    prevStage.current = stage;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
+  const reviewBack = useCallback(() => {
+    const c = reviewPending[0];
+    if (!c || reviewPending.length < 2) return;
+    setReviewOrder([...reviewAll.map((p) => p.path).filter((x) => x !== c.path), c.path]);
+  }, [reviewPending, reviewAll]);
+  const reviewAccept = useCallback(() => {
+    const c = reviewPending[0];
+    if (!c) return;
+    setApproved((prev) => [...prev, c.path]);
+  }, [reviewPending]);
+  const reviewEject = useCallback(() => {
+    const c = reviewPending[0];
+    if (!c) return;
+    setApproved((prev) => prev.filter((x) => x !== c.path));
+    handleRemoveSelected(c);
+  }, [reviewPending, handleRemoveSelected]);
+
   useEffect(() => {
     if (stage !== "review") return;
     const h = (e: KeyboardEvent) => {
       const tg = e.target as HTMLElement | null;
       if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA")) return;
       if (isProcessing) return;
-      // Esc: kembali ke sorting (sama seperti tombol "Kembali").
       if (e.key === "Escape") {
         e.preventDefault();
         setStage("sorting");
-        return;
-      }
-      const list = [...selectedPhotos].reverse();
-      if (list.length === 0) return;
-      const idx = Math.min(reviewIndex, list.length - 1);
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        setReviewIndex(Math.min(idx + 1, list.length - 1));
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        setReviewIndex(Math.max(idx - 1, 0));
-      } else if (e.key === "Backspace" || e.key === "Delete") {
+        reviewBack();
+      } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        handleRemoveSelected(list[idx]);
+        reviewAccept();
+      } else if (e.key === "ArrowDown" || e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        reviewEject();
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [stage, isProcessing, selectedPhotos, reviewIndex, handleRemoveSelected]);
+  }, [stage, isProcessing, reviewBack, reviewAccept, reviewEject]);
 
   const resetApp = () => {
     if (sourceFolder) invoke("clear_session", { key: sourceFolder }).catch(() => {});
@@ -1595,10 +1632,11 @@ function App() {
   }
 
   if (stage === "review") {
-    const list = [...selectedPhotos].reverse();
-    const idx = Math.min(reviewIndex, Math.max(0, list.length - 1));
-    const cur = list[idx];
-    const behind = list[idx + 1];
+    const list = reviewPending;
+    const cur = list[0];
+    const behind = list[1];
+    const all = reviewAll;
+    const approvedCount = all.length - list.length;
     const setRatio = (r: number) => {
       if (!cur) return;
       setStackAspectRatios((prev) =>
@@ -1618,16 +1656,15 @@ function App() {
             ← Kembali
           </button>
           <span className="top-bar-mid">
-            Periksa <span className="stat-value">{list.length}</span> foto
-            terpilih{cur ? ` · ${idx + 1} / ${list.length}` : ""}
+            Disetujui <span className="stat-value">{approvedCount}</span> / {all.length}
           </span>
           <div className="top-bar-actions">
             <button
               className="primary review-save"
               onClick={() => setStage("export")}
-              disabled={isProcessing || list.length === 0}
+              disabled={isProcessing || all.length === 0}
             >
-              {`Ekspor ${list.length} file ›`}
+              {`Ekspor ${all.length} file ›`}
             </button>
           </div>
         </div>
@@ -1709,7 +1746,7 @@ function App() {
               </div>
             ) : (
               <div className="preview-placeholder empty-state" style={{ zIndex: 2 }}>
-                <span className="empty-title">Tidak ada foto terpilih</span>
+                <span className="empty-title">{all.length > 0 ? "Semua sudah diperiksa" : "Tidak ada foto terpilih"}</span>
                 <span className="hint-inline">
                   Klik &quot;Kembali&quot; untuk melanjutkan sortir.
                 </span>
@@ -1782,15 +1819,15 @@ function App() {
             <button
               type="button"
               className="ghost-btn"
-              onClick={() => setReviewIndex(Math.max(idx - 1, 0))}
-              disabled={idx === 0}
+              onClick={reviewBack}
+              disabled={list.length < 2}
             >
-              ‹ Sebelumnya
+              ‹ Ke belakang
             </button>
             <button
               type="button"
               className="photo-lightbox-remove"
-              onClick={() => cur && handleRemoveSelected(cur)}
+              onClick={reviewEject}
               disabled={!cur || isProcessing}
             >
               Keluarkan dari terpilih
@@ -1798,14 +1835,14 @@ function App() {
             <button
               type="button"
               className="ghost-btn"
-              onClick={() => setReviewIndex(Math.min(idx + 1, list.length - 1))}
-              disabled={idx >= list.length - 1}
+              onClick={reviewAccept}
+              disabled={!cur}
             >
-              Berikutnya ›
+              ACC ›
             </button>
           </div>
           <p className="hint mono">
-            <kbd>←</kbd> <kbd>→</kbd> navigasi · <kbd>⌫</kbd> keluarkan · <kbd>Esc</kbd> kembali
+            <kbd>←</kbd> ke belakang · <kbd>→</kbd> acc · <kbd>↓</kbd> keluarkan · <kbd>Esc</kbd> kembali
           </p>
         </div>
       </div>
