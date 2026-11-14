@@ -31,6 +31,8 @@ const SWIPE_THRESHOLD = 110;
 const VELOCITY_THRESHOLD = 0.55; // px/ms — a fast flick clears even under the distance threshold
 const STACK_DEPTH = 2; // hanya 1 sheet yang tampil membelakangi current
 const HISTORY_LIMIT = 5000;
+// false = kartu tidak bisa di-swipe dengan kursor; hanya ← / → di keyboard.
+const DRAG_SWIPE_ENABLED = false as boolean;
 // Harus SAMA PERSIS dengan durasi @keyframes card-pop-in di App.css
 // (animation: card-pop-in 0.38s ...). Dipakai untuk menahan guard exit
 // selama kartu baru masih dalam proses animasi "masuk", supaya swipe
@@ -1142,6 +1144,9 @@ function App() {
   // --- Drag-to-swipe on the preview card, with velocity tracking so a
   // quick flick clears the card even if it didn't travel far. ---
   const onPointerDown = (e: React.PointerEvent) => {
+    // Skip/pilih hanya lewat keyboard (← / →): drag dengan kursor dinonaktifkan.
+    if (DRAG_SWIPE_ENABLED) void e;
+    if (!DRAG_SWIPE_ENABLED) return;
     if (queue.length === 0 || isProcessing || exitDir) return;
     dragging.current = true;
     dragMoved.current = false;

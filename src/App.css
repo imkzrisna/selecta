@@ -3338,3 +3338,9 @@ body {
 .preview-box:has(.pdf-viewer-compact) {
   margin-top: 20px;
 }
+
+/* Swipe dengan kursor dinonaktifkan: tidak ada kursor "grab" pada kartu */
+.preview-box,
+.preview-box:active {
+  cursor: default;
+}
