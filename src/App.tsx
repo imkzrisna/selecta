@@ -1560,6 +1560,134 @@ function App() {
     }
   }, [isProcessing, recordHistory]);
 
+  // ---- Animasi review: mekanisme ghost yang sama dengan sorting utama ----
+  const reviewActs = useRef({ back: reviewBack, accept: reviewAccept, eject: reviewEject });
+  reviewActs.current = { back: reviewBack, accept: reviewAccept, eject: reviewEject };
+  const reviewPend = useRef<("left" | "right" | "down")[]>([]);
+  const reviewFire = useRef<(d: "left" | "right" | "down", fast: boolean) => void>(() => {});
+  const [reviewUndoAnim, setReviewUndoAnim] = useState<{
+    path: string;
+    kind: "from-back" | "from-tray";
+  } | null>(null);
+
+  const reviewDrain = () => {
+    const d = reviewPend.current.shift();
+    if (d) reviewFire.current(d, true);
+  };
+
+  reviewFire.current = (dir, fast) => {
+    const c = reviewPending[0];
+    if (!c || (dir === "left" && reviewPending.length < 2)) return;
+    const act = () => {
+      if (dir === "left") reviewActs.current.back();
+      else if (dir === "right") reviewActs.current.accept();
+      else reviewActs.current.eject();
+    };
+    setReviewUndoAnim(null);
+    const card = reviewCardEl;
+    const box = card?.parentElement;
+    exitInProgress.current = true;
+    if (fast) {
+      burstStreak.current += 1;
+      burstRef.current = true;
+      setBurst(true);
+      if (burstTimer.current) window.clearTimeout(burstTimer.current);
+      burstTimer.current = window.setTimeout(() => {
+        burstRef.current = false;
+        setBurst(false);
+      }, BURST_IDLE_MS);
+    } else {
+      burstStreak.current = 0;
+    }
+    const ms = fast
+      ? burstExitMs(burstStreak.current)
+      : dir === "left"
+        ? NORMAL_EXIT_MS.left
+        : dir === "right"
+          ? NORMAL_EXIT_MS.right
+          : 340;
+    if (card && box) {
+      const ghost = card.cloneNode(true) as HTMLDivElement;
+      ghost.className = `preview-card exit-${dir}${fast ? " is-burst" : ""} is-ghost`;
+      ghost.style.pointerEvents = "none";
+      ghost.style.transform = "";
+      ghost.style.zIndex = String(STACK_DEPTH + 2);
+      ghost.style.setProperty("--start-x", "0px");
+      ghost.style.setProperty("--start-rot", "0deg");
+      if (fast) {
+        ghost.style.setProperty("--burst-ms", `${ms}ms`);
+        ghost.style.setProperty("--burst-fade", `${Math.max(30, Math.round(ms / 3))}ms`);
+        ghost.style.setProperty("--burst-fade-delay", `${Math.round(ms * 0.66)}ms`);
+      }
+      box.appendChild(ghost);
+      const srcC = card.querySelectorAll("canvas");
+      const dstC = ghost.querySelectorAll("canvas");
+      srcC.forEach((cv, i) => {
+        const d = dstC[i] as HTMLCanvasElement | undefined;
+        try {
+          d?.getContext("2d")?.drawImage(cv, 0, 0);
+        } catch {
+          /* abaikan */
+        }
+      });
+      const s1 = card.querySelector(".pdf-compact-scroll");
+      const s2 = ghost.querySelector(".pdf-compact-scroll");
+      if (s1 && s2) {
+        s2.scrollTop = s1.scrollTop;
+        s2.scrollLeft = s1.scrollLeft;
+      }
+      window.setTimeout(() => ghost.remove(), ms + 120);
+    }
+    act();
+    const release = () => {
+      exitInProgress.current = false;
+      reviewDrain();
+    };
+    if (fast) requestAnimationFrame(() => requestAnimationFrame(release));
+    else window.setTimeout(release, 120);
+  };
+
+  const reviewPress = (dir: "left" | "right" | "down", repeat: boolean) => {
+    const now = performance.now();
+    const last = dir === "right" ? lastRightAt : lastLeftAt;
+    const fast = repeat || now - last.current < BURST_WINDOW_MS;
+    last.current = now;
+    if (repeat) heldRepeat.current = true;
+    if (exitInProgress.current) {
+      if (fast && reviewPend.current.length < MAX_PENDING_BURST) reviewPend.current.push(dir);
+      return;
+    }
+    reviewFire.current(dir, fast);
+  };
+  const reviewPressRef = useRef(reviewPress);
+  reviewPressRef.current = reviewPress;
+
+  const reviewUndoFly = () => {
+    const last = reviewHist.current[reviewHist.current.length - 1];
+    if (!last || isProcessing) return;
+    reviewPend.current = [];
+    let path: string | undefined;
+    let kind: "from-back" | "from-tray" = "from-tray";
+    if (last.type === "back") {
+      kind = "from-back";
+      path = last.prevOrder.find((x) => !approved.includes(x));
+    } else if (last.type === "accept") {
+      path = last.path;
+    } else {
+      path = last.photo.path;
+    }
+    reviewUndo();
+    if (path) {
+      setReviewUndoAnim({ path, kind });
+      exitInProgress.current = true;
+      window.setTimeout(() => {
+        exitInProgress.current = false;
+      }, kind === "from-back" ? UNDO_BACK_MS : UNDO_TRAY_MS);
+    }
+  };
+  const reviewUndoFlyRef = useRef(reviewUndoFly);
+  reviewUndoFlyRef.current = reviewUndoFly;
+
   useEffect(() => {
     if (stage !== "review") return;
     const h = (e: KeyboardEvent) => {
@@ -1574,21 +1702,31 @@ function App() {
         e.key === "Backspace"
       ) {
         e.preventDefault();
-        reviewUndo();
+        reviewUndoFlyRef.current();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        reviewBack();
+        reviewPressRef.current("left", e.repeat);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        reviewAccept();
+        reviewPressRef.current("right", e.repeat);
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        reviewEject();
+        reviewPressRef.current("down", e.repeat);
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (["ArrowLeft", "ArrowRight", "ArrowDown"].includes(e.key) && heldRepeat.current) {
+        heldRepeat.current = false;
+        reviewPend.current = [];
       }
     };
     window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [stage, isProcessing, reviewBack, reviewAccept, reviewEject, reviewUndo]);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", h);
+      window.removeEventListener("keyup", up);
+    };
+  }, [stage, isProcessing]);
 
   const resetApp = () => {
     if (sourceFolder) invoke("clear_session", { key: sourceFolder }).catch(() => {});
@@ -1740,7 +1878,7 @@ function App() {
           <div className="top-bar-actions">
             <button
               className="ghost-btn"
-              onClick={reviewUndo}
+              onClick={() => reviewUndoFlyRef.current()}
               disabled={isProcessing || reviewUndoCount === 0}
               title="Batalkan keputusan terakhir (⌘Z)"
             >
@@ -1757,7 +1895,7 @@ function App() {
         </div>
 
         <div className="review-stage">
-          <div className="preview-box review-box">
+          <div className={`preview-box review-box${burst ? " is-burst" : ""}`}>
             {behind && (
               <div
                 key={behind.path}
@@ -1826,7 +1964,7 @@ function App() {
                   <div
                     key={cur.path}
                     ref={setReviewCardEl}
-                    className="preview-card"
+                    className={"preview-card" + (burst ? " is-burst" : "") + (reviewUndoAnim && reviewUndoAnim.path === cur.path ? ` undo-${reviewUndoAnim.kind}` : "")}
                     style={{
                       zIndex: 3,
                       ["--enter-rot" as string]: `${rot}deg`,
@@ -1944,7 +2082,7 @@ function App() {
             <button
               type="button"
               className="ghost-btn"
-              onClick={reviewBack}
+              onClick={() => reviewPressRef.current("left", false)}
               disabled={list.length < 2}
             >
               ‹ Ke belakang
@@ -1952,7 +2090,7 @@ function App() {
             <button
               type="button"
               className="photo-lightbox-remove"
-              onClick={reviewEject}
+              onClick={() => reviewPressRef.current("down", false)}
               disabled={!cur || isProcessing}
             >
               Keluarkan dari terpilih
@@ -1960,7 +2098,7 @@ function App() {
             <button
               type="button"
               className="ghost-btn"
-              onClick={reviewAccept}
+              onClick={() => reviewPressRef.current("right", false)}
               disabled={!cur}
             >
               ACC ›

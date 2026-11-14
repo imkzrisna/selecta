@@ -3543,3 +3543,20 @@ body {
   flex: 1 1 0;
   min-height: 0;
 }
+
+/* ---------- Review: exit ke bawah (eject), sama gaya dengan exit lain ---------- */
+@keyframes exit-to-down {
+  from { transform: translate(0, 0) rotate(0deg) scale(1); }
+  to { transform: translate(0, 120%) rotate(4deg) scale(0.9); }
+}
+.preview-card.exit-down {
+  animation:
+    exit-to-down 340ms cubic-bezier(0.4, 0, 1, 1) forwards,
+    exit-to-tray-fade 130ms linear 210ms forwards;
+  z-index: 30;
+  pointer-events: none;
+}
+.preview-card.exit-down.is-burst {
+  animation-duration: var(--burst-ms, 150ms), var(--burst-fade, 50ms);
+  animation-delay: 0s, var(--burst-fade-delay, 100ms);
+}
