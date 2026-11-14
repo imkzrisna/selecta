@@ -3374,3 +3374,40 @@ body {
     0 0 0 4px var(--border),
     0 8px 22px rgba(20, 20, 15, 0.1);
 }
+
+/* ---------- Foto memanjang: kartu normal, isi digulir ---------- */
+.preview-photo-inner.is-long-tall {
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-items: flex-start;
+  scrollbar-width: thin;
+}
+.preview-photo-inner.is-long-tall .preview-img {
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  flex-shrink: 0;
+}
+.preview-photo-inner.is-long-wide {
+  overflow-x: auto;
+  overflow-y: hidden;
+  justify-content: flex-start;
+  scrollbar-width: thin;
+}
+.preview-photo-inner.is-long-wide .preview-img {
+  height: 100%;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  flex-shrink: 0;
+}
+.stack-sheet-inner[data-long][data-kind] > .stack-sheet-thumb {
+  object-fit: cover;
+}
+.stack-sheet-inner[data-long="tall"][data-kind] > .stack-sheet-thumb {
+  object-position: top;
+}
+.stack-sheet-inner[data-long="wide"][data-kind] > .stack-sheet-thumb {
+  object-position: left;
+}

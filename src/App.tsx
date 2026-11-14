@@ -102,13 +102,27 @@ const UNDO_TRAY_MS = 460;
 let toastId = 0;
 
 // Kartu belakang dimuat di dalam kotak kartu depan (94%), rasio asli dijaga.
+// Foto memanjang (rasio ekstrem) tampil di kartu normal dan isinya digulir.
+const LONG_MIN = 0.4;
+const LONG_MAX = 2.5;
+function longKindOf(r: number | null | undefined): "tall" | "wide" | undefined {
+  if (!r) return undefined;
+  if (r < LONG_MIN) return "tall";
+  if (r > LONG_MAX) return "wide";
+  return undefined;
+}
+function shapeRatio(r: number): number {
+  const k = longKindOf(r);
+  return k === "tall" ? 3 / 4 : k === "wide" ? 4 / 3 : r;
+}
+
 function backCardStyle(
-  r: number | undefined,
+  r0: number | undefined,
   box: { w: number; h: number } | null,
 ): React.CSSProperties | undefined {
-  if (!r) return undefined;
+  if (!r0) return undefined;
+  const r = shapeRatio(r0);
   if (!box || !box.w || !box.h) return { aspectRatio: `${r}` };
-  // Muat rasio asli ke dalam area kartu (box = area tersedia), skala 0.9.
   const w = Math.min(box.w * 0.8, box.h * 0.8 * r);
   return {
     aspectRatio: `${r}`,
@@ -1834,6 +1848,8 @@ function App() {
         ? 16 / 9
         : currentAspectRatio);
   // Pose awal pop-in = pose kartu belakang depth 1 (rumus sama dengan stack-sheet).
+  const longKind = current?.kind === "image" ? longKindOf(displayAspectRatio) : undefined;
+  const shapedRatio = displayAspectRatio ? shapeRatio(displayAspectRatio) : displayAspectRatio;
   const enterRot = current ? -3 + seededOffset(current.path, 1).rotate * 0.5 : -3;
   const frameNumber = totalLoaded - queue.length + 1;
   const swipeProgress = Math.max(-1, Math.min(1, dragX / SWIPE_THRESHOLD));
@@ -2090,6 +2106,7 @@ function App() {
                         <div
                           className="stack-sheet-inner"
                           data-kind={p.kind}
+                          data-long={longKindOf(stackAspectRatios[p.path])}
                           style={backCardStyle(stackAspectRatios[p.path], frontBox)}
                         >
                           {p.kind !== "image" && (
@@ -2212,6 +2229,7 @@ function App() {
                       <div
                         className={
                           "preview-photo-inner" +
+                          (longKind ? ` is-long-${longKind}` : "") +
                           (current?.kind === "pdf" || current?.kind === "video"
                             ? " is-clickable"
                             : "") +
@@ -2220,8 +2238,8 @@ function App() {
                             : "")
                         }
                         style={
-                          displayAspectRatio
-                            ? { aspectRatio: `${displayAspectRatio}` }
+                          shapedRatio
+                            ? { aspectRatio: `${shapedRatio}` }
                             : undefined
                         }
                         onClick={() => {
