@@ -10,6 +10,9 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
+import { FolderGlyph, TrayGlyph, FilterGlyph } from "./components/ui/Glyphs";
+import { RollDial, ProgressRing } from "./components/ui/Dials";
+import { DelayedSpinner } from "./components/ui/DelayedSpinner";
 import type { PhotoKind, PhotoEntry, Stage, ExitDirection, HistoryEntry, Toast } from "./lib/types";
 import { seededOffset, cacheSet, splitName, cleanBase, extOf, longKindOf, shapeRatio, backCardStyle } from "./lib/utils";
 import PdfViewer from "./components/media/PdfViewer";
@@ -80,29 +83,6 @@ let toastId = 0;
 // ini dimount — mencegah "flash" spinner untuk loading yang cepat selesai.
 // Kalau parent-nya unmount komponen ini sebelum delay habis (mis. loading
 // selesai duluan), spinner tidak akan sempat terlihat sama sekali.
-function DelayedSpinner({
-  delay = 500,
-  size,
-  stroke,
-  speed,
-  color,
-}: {
-  delay?: number;
-  size: string;
-  stroke: string;
-  speed: string;
-  color: string;
-}) {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const t = window.setTimeout(() => setShow(true), delay);
-    return () => window.clearTimeout(t);
-  }, [delay]);
-  if (!show) return null;
-  return (
-    <l-tail-spin size={size} stroke={stroke} speed={speed} color={color} />
-  );
-}
 
 function App() {
   const [stage, setStage] = useState<Stage>("setup");
@@ -3134,184 +3114,13 @@ function App() {
 }
 
 // --- small inline glyphs, so the setup screen doesn't need an icon library ---
-function FilterGlyph({ kind }: { kind: "all" | PhotoKind }) {
-  const common = { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none" } as const;
-  const s = { stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
-  if (kind === "image") {
-    return (
-      <svg {...common}>
-        <rect x="4" y="5" width="16" height="14" rx="2.5" {...s} />
-        <circle cx="9" cy="10" r="1.4" {...s} />
-        <path d="m5 17 4.5-4.5 3.5 3.5 2.5-2.5L19 16" {...s} />
-      </svg>
-    );
-  }
-  if (kind === "pdf") {
-    return (
-      <svg {...common}>
-        <path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5Z" {...s} />
-        <path d="M9.5 13h5M9.5 16.5h5" {...s} />
-      </svg>
-    );
-  }
-  if (kind === "video") {
-    return (
-      <svg {...common}>
-        <path d="M9 7.5v9l7.5-4.5L9 7.5Z" fill="currentColor" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common}>
-      <rect x="4.5" y="4.5" width="6" height="6" rx="1.5" {...s} />
-      <rect x="13.5" y="4.5" width="6" height="6" rx="1.5" {...s} />
-      <rect x="4.5" y="13.5" width="6" height="6" rx="1.5" {...s} />
-      <rect x="13.5" y="13.5" width="6" height="6" rx="1.5" {...s} />
-    </svg>
-  );
-}
 
-function FolderGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
-      <path
-        d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.3a1.5 1.5 0 0 1 1.2.6l1 1.4h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 19H4.5A1.5 1.5 0 0 1 3 17.5v-11Z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-    </svg>
-  );
-}
 
-function TrayGlyph({ large = false }: { large?: boolean }) {
-  const s = large ? 34 : 18;
-  return (
-    <svg viewBox="0 0 24 24" width={s} height={s} fill="none">
-      <path
-        d="M4 13.5 6.2 5.8A1.5 1.5 0 0 1 7.65 4.7h8.7a1.5 1.5 0 0 1 1.45 1.1L20 13.5"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-      <path
-        d="M4 13.5h4.2a1 1 0 0 1 .95.68l.4 1.2a1 1 0 0 0 .95.68h2.6a1 1 0 0 0 .95-.68l.4-1.2a1 1 0 0 1 .95-.68H20V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18v-4.5Z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-    </svg>
-  );
-}
 
 // A dial-style progress ring for the done screen: an inner arc plus a bezel
 // of tick marks (like a light-meter or a film-advance dial) that light up
 // as the fill count goes up, so it reads as a physical instrument rather
 // than a generic loading ring.
-function RollDial({
-  progress,
-  size = 180,
-}: {
-  progress: number;
-  size?: number;
-}) {
-  const clamped = Math.min(100, Math.max(0, progress));
-  const cx = size / 2;
-  const cy = size / 2;
 
-  const ringStroke = 7;
-  const ringR = size / 2 - 26;
-  const c = 2 * Math.PI * ringR;
-  const offset = c - (clamped / 100) * c;
-
-  const tickCount = 48;
-  const tickOuter = size / 2 - 3;
-  const ticks = Array.from({ length: tickCount }).map((_, i) => {
-    const major = i % 4 === 0;
-    const tickInner = tickOuter - (major ? 11 : 6);
-    const angleDeg = (i / tickCount) * 360 - 90;
-    const rad = (angleDeg * Math.PI) / 180;
-    const x1 = cx + tickInner * Math.cos(rad);
-    const y1 = cy + tickInner * Math.sin(rad);
-    const x2 = cx + tickOuter * Math.cos(rad);
-    const y2 = cy + tickOuter * Math.sin(rad);
-    const filled = (i / tickCount) * 100 <= clamped;
-    return { key: i, x1, y1, x2, y2, filled, major };
-  });
-
-  return (
-    <svg width={size} height={size} className="roll-dial">
-      {ticks.map((t) => (
-        <line
-          key={t.key}
-          x1={t.x1}
-          y1={t.y1}
-          x2={t.x2}
-          y2={t.y2}
-          stroke={t.filled ? "var(--accent)" : "var(--border-strong)"}
-          strokeWidth={t.major ? 2 : 1.4}
-          strokeLinecap="round"
-          opacity={t.filled ? 1 : 0.6}
-        />
-      ))}
-      <circle
-        cx={cx}
-        cy={cy}
-        r={ringR}
-        fill="none"
-        stroke="var(--border)"
-        strokeWidth={ringStroke}
-      />
-      <circle
-        cx={cx}
-        cy={cy}
-        r={ringR}
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth={ringStroke}
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform={`rotate(-90 ${cx} ${cy})`}
-        className="roll-dial-arc"
-      />
-    </svg>
-  );
-}
-
-function ProgressRing({
-  progress,
-  size = 40,
-  strokeWidth = 3.5,
-}: {
-  progress: number;
-  size?: number;
-  strokeWidth?: number;
-}) {
-  const r = (size - strokeWidth) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c - (Math.min(100, Math.max(0, progress)) / 100) * c;
-  return (
-    <svg width={size} height={size} className="progress-ring">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="var(--border)"
-        strokeWidth={strokeWidth}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-    </svg>
-  );
-}
 
 export default App;
