@@ -10,6 +10,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
+import { flyGhost } from "./lib/ghost";
 import ShortcutsModal from "./components/ui/ShortcutsModal";
 import FilterMenu from "./components/ui/FilterMenu";
 import ExportScreen from "./components/screens/ExportScreen";
@@ -1116,62 +1117,13 @@ function App() {
       const photo = visibleQueue[0];
       if (!card || !box || !photo) return false;
 
-      const ghost = card.cloneNode(true) as HTMLDivElement;
-      // cloneNode tidak menyalin isi <canvas> (PDF) maupun posisi scroll.
-      const copyCanvases = () => {
-        const src = card.querySelectorAll("canvas");
-        const dst = ghost.querySelectorAll("canvas");
-        src.forEach((c, i) => {
-          const d = dst[i] as HTMLCanvasElement | undefined;
-          if (!d) return;
-          try {
-            d.getContext("2d")?.drawImage(c, 0, 0);
-          } catch {
-            /* abaikan: ghost tetap terbang tanpa isi kanvas */
-          }
-        });
-        const s1 = card.querySelector(".pdf-compact-scroll");
-        const s2 = ghost.querySelector(".pdf-compact-scroll");
-        if (s1 && s2) {
-          s2.scrollTop = s1.scrollTop;
-          s2.scrollLeft = s1.scrollLeft;
-        }
-      };
-      ghost.className = `preview-card exit-${dir}${fast ? " is-burst" : ""} is-ghost`;
-      ghost.style.pointerEvents = "none";
-      ghost.style.transform = "";
-      ghost.style.zIndex = String(STACK_DEPTH + 2);
-      ghost.style.setProperty("--start-x", "0px");
-      ghost.style.setProperty("--start-rot", "0deg");
-      if (fast) {
-        ghost.style.setProperty("--burst-ms", `${ms}ms`);
-        ghost.style.setProperty(
-          "--burst-fade",
-          `${Math.max(30, Math.round(ms / 3))}ms`,
-        );
-        ghost.style.setProperty(
-          "--burst-fade-delay",
-          `${Math.round(ms * 0.66)}ms`,
-        );
-      }
-      if (dir === "right" && trayRef.current) {
-        const c = card.getBoundingClientRect();
-        const tr = trayRef.current.getBoundingClientRect();
-        const S = 0.3;
-        const cx = c.left + c.width / 2;
-        const cy = c.top + c.height / 2;
-        ghost.style.setProperty(
-          "--exit-x",
-          `${tr.left + tr.width / 2 - cx - 0.3 * card.offsetWidth * (1 - S)}px`,
-        );
-        ghost.style.setProperty(
-          "--exit-y",
-          `${tr.top + tr.height / 2 - cy - 0.3 * card.offsetHeight * (1 - S)}px`,
-        );
-      }
-      box.appendChild(ghost);
-      copyCanvases();
-      window.setTimeout(() => ghost.remove(), ms + 120);
+      flyGhost(card, box, {
+        dir,
+        ms,
+        fast,
+        zIndex: STACK_DEPTH + 2,
+        trayEl: trayRef.current,
+      });
 
       // Catat keputusan sekarang; kartu berikutnya langsung naik.
       if (dir === "left") handleReject(photo);
@@ -1656,42 +1608,7 @@ function App() {
           ? NORMAL_EXIT_MS.right
           : 340;
     if (card && box) {
-      const ghost = card.cloneNode(true) as HTMLDivElement;
-      ghost.className = `preview-card exit-${dir}${fast ? " is-burst" : ""} is-ghost`;
-      ghost.style.pointerEvents = "none";
-      ghost.style.transform = "";
-      ghost.style.zIndex = String(STACK_DEPTH + 2);
-      ghost.style.setProperty("--start-x", "0px");
-      ghost.style.setProperty("--start-rot", "0deg");
-      if (fast) {
-        ghost.style.setProperty("--burst-ms", `${ms}ms`);
-        ghost.style.setProperty(
-          "--burst-fade",
-          `${Math.max(30, Math.round(ms / 3))}ms`,
-        );
-        ghost.style.setProperty(
-          "--burst-fade-delay",
-          `${Math.round(ms * 0.66)}ms`,
-        );
-      }
-      box.appendChild(ghost);
-      const srcC = card.querySelectorAll("canvas");
-      const dstC = ghost.querySelectorAll("canvas");
-      srcC.forEach((cv, i) => {
-        const d = dstC[i] as HTMLCanvasElement | undefined;
-        try {
-          d?.getContext("2d")?.drawImage(cv, 0, 0);
-        } catch {
-          /* abaikan */
-        }
-      });
-      const s1 = card.querySelector(".pdf-compact-scroll");
-      const s2 = ghost.querySelector(".pdf-compact-scroll");
-      if (s1 && s2) {
-        s2.scrollTop = s1.scrollTop;
-        s2.scrollLeft = s1.scrollLeft;
-      }
-      window.setTimeout(() => ghost.remove(), ms + 120);
+      flyGhost(card, box, { dir, ms, fast, zIndex: STACK_DEPTH + 2 });
     }
     act();
     const release = () => {
