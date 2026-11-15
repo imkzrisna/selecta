@@ -258,7 +258,7 @@ fn get_preview(path: String, app: AppHandle, is_prefetch: Option<bool>) -> Resul
     // --- Cache miss / invalid: generate preview ---
     // Semua ekstensi (termasuk JPG) lewat sips: resize + kompresi ke JPG.
     // Input asli TIDAK PERNAH ditimpa -- sips selalu menulis ke --out (file temp).
-    let tmp_dir = std::env::temp_dir().join("photo-culler-preview");
+    let tmp_dir = std::env::temp_dir().join("selecta-preview");
     fs::create_dir_all(&tmp_dir).map_err(|e| e.to_string())?;
 
     let file_stem = p
@@ -350,7 +350,7 @@ fn get_video_thumbnail(path: String) -> Result<String, String> {
         return Err("Bukan file video".into());
     }
 
-    let tmp_dir = std::env::temp_dir().join("photo-culler-video-thumb");
+    let tmp_dir = std::env::temp_dir().join("selecta-video-thumb");
     fs::create_dir_all(&tmp_dir).map_err(|e| e.to_string())?;
 
     let file_stem = p

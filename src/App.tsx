@@ -493,13 +493,9 @@ function App() {
           }
           if (cursor >= targets.length) return;
           const photo = targets[cursor++];
-          console.log(`[PREFETCH-ALL] Memulai: ${photo.name}`);
           invoke<string>("get_preview", { path: photo.path })
             .then((dataUrl) => {
               if (myGeneration !== prefetchGeneration.current) return;
-              console.log(
-                `[PREFETCH-ALL] Berhasil: ${photo.name}, len=${dataUrl?.length}`,
-              );
               cacheSet(
                 previewCache.current,
                 photo.path,
@@ -822,12 +818,8 @@ function App() {
         !previewCache.current.has(p.path) &&
         !failedPreviews.current.has(p.path)
       ) {
-        console.log(`[DIAG] Memulai prefetch: ${p.name}`);
         invoke<string>("get_preview", { path: p.path, isPrefetch: true })
           .then((dataUrl) => {
-            console.log(
-              `[DIAG] Prefetch BERHASIL: ${p.name}, len=${dataUrl?.length}`,
-            );
             cacheSet(previewCache.current, p.path, dataUrl);
             forceCacheRerender();
           })
