@@ -33,7 +33,7 @@ const STACK_DEPTH = 2; // hanya 1 sheet yang tampil membelakangi current
 const HISTORY_LIMIT = 5000;
 // Jendela decode: preview (ringan) lebih luas, file asli (berat) dibatasi.
 const DECODE_PREVIEW_WINDOW = 20;
-const DECODE_FULL_WINDOW = 3;
+const DECODE_FULL_WINDOW = 10;
 // false = kartu tidak bisa di-swipe dengan kursor; hanya ← / → di keyboard.
 const DRAG_SWIPE_ENABLED = false as boolean;
 // Harus SAMA PERSIS dengan durasi @keyframes card-pop-in di App.css
@@ -650,7 +650,7 @@ function App() {
         const img = new Image();
         img.onload = () => {
           frontFull.current.set(cur.path, url);
-          if (frontFull.current.size > 40) {
+          if (frontFull.current.size > 60) {
             const k = frontFull.current.keys().next().value;
             if (k !== undefined) frontFull.current.delete(k);
           }
@@ -690,7 +690,7 @@ function App() {
       hold("p:" + p.path, previewCache.current.get(p.path));
       if (i < DECODE_FULL_WINDOW) hold("f:" + p.path, frontFull.current.get(p.path));
       // prefetch file asli untuk 2 kartu berikutnya
-      if (i < 2 && !frontFull.current.has(p.path)) {
+      if (i < DECODE_FULL_WINDOW && !frontFull.current.has(p.path)) {
         invoke<string>("get_full_image", { path: p.path })
           .then((full) => {
             const url = convertFileSrc(full);
