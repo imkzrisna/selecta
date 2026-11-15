@@ -1604,6 +1604,10 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, reviewPending[0]?.path]);
 
+  useEffect(() => {
+    if (stage === "review") setScrolledPath(null);
+  }, [stage, reviewPending[0]?.path]);
+
   const reviewEject = useCallback(() => {
     const c = reviewPending[0];
     if (!c) return;
@@ -1632,6 +1636,10 @@ function App() {
   }, [isProcessing, recordHistory]);
 
   // ---- Animasi review: mekanisme ghost yang sama dengan sorting utama ----
+  const zoomPhotoRef = useRef(zoomPhoto);
+  zoomPhotoRef.current = zoomPhoto;
+  const fullViewRef = useRef(fullViewPhoto);
+  fullViewRef.current = fullViewPhoto;
   const reviewActs = useRef({ back: reviewBack, accept: reviewAccept, eject: reviewEject });
   reviewActs.current = { back: reviewBack, accept: reviewAccept, eject: reviewEject };
   const reviewPend = useRef<("left" | "right" | "down")[]>([]);
@@ -1765,6 +1773,14 @@ function App() {
       const tg = e.target as HTMLElement | null;
       if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA")) return;
       if (isProcessing) return;
+      if (zoomPhotoRef.current || fullViewRef.current) {
+        if (e.key === "Escape" && fullViewRef.current) {
+          e.preventDefault();
+          (document.activeElement as HTMLElement | null)?.blur();
+          setFullViewPhoto(null);
+        }
+        return;
+      }
       if (e.key === "Escape") {
         e.preventDefault();
         setStage("sorting");
@@ -2049,6 +2065,17 @@ function App() {
                         (lk ? ` is-long-${lk}` : "")
                       }
                       style={shaped ? { aspectRatio: `${shaped}` } : undefined}
+                      onScroll={(e) => {
+                        if (!lk) return;
+                        const el = e.currentTarget;
+                        const moved = lk === "tall" ? el.scrollTop : el.scrollLeft;
+                        if (moved > 24 && scrolledPath !== cur.path) setScrolledPath(cur.path);
+                      }}
+                      onClick={() => {
+                        if (exitInProgress.current) return;
+                        if (cur.kind === "pdf" || cur.kind === "video") setFullViewPhoto(cur);
+                        else if (cur.kind === "image") setZoomPhoto(cur);
+                      }}
                     >
                       {cur.kind === "pdf" ? (
                         <PdfViewer path={cur.path} compact onDimensionsChange={setRatio} />
@@ -2073,6 +2100,12 @@ function App() {
                         </span>
                       )}
                     </div>
+                    {lk && scrolledPath !== cur.path && (
+                      <span className={`scroll-hint scroll-hint-${lk} mono review-scroll-hint`} aria-hidden="true">
+                        <span className="scroll-hint-arrow">{lk === "tall" ? "↓" : "→"}</span>
+                        Gulir
+                      </span>
+                    )}
                     <span className="frame-counter mono">
                       {String(approvedCount + 1).padStart(3, "0")} /{" "}
                       {String(all.length).padStart(3, "0")}

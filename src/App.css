@@ -3600,3 +3600,11 @@ body {
   font-family: var(--font-sans);
   font-size: 10px;
 }
+
+/* Review: petunjuk gulir dan kursor klik */
+.review-screen .preview-photo-inner {
+  cursor: zoom-in;
+}
+.review-screen .scroll-hint-tall {
+  bottom: 40px;
+}
