@@ -10,22 +10,14 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
+import type { PhotoKind, PhotoEntry, Stage, ExitDirection, HistoryEntry, Toast } from "./lib/types";
+import { seededOffset, cacheSet, splitName, cleanBase, extOf, longKindOf, shapeRatio, backCardStyle } from "./lib/utils";
 import PdfViewer from "./components/media/PdfViewer";
 import VideoViewer from "./components/media/VideoViewer";
 import ImageZoomViewer from "./components/media/ImageZoomViewer";
 import BackThumb, { prefetchThumb } from "./components/media/BackThumb";
 
-type PhotoKind = "image" | "pdf" | "video";
-type PhotoEntry = {
-  path: string;
-  name: string;
-  kind: PhotoKind;
-};
 
-type Stage = "setup" | "preparing" | "sorting" | "review" | "export" | "done";
-type ExitDirection = "left" | "right" | null;
-type HistoryEntry = { type: "reject" | "select"; photo: PhotoEntry };
-type Toast = { id: number; message: string };
 
 const SWIPE_THRESHOLD = 110;
 const VELOCITY_THRESHOLD = 0.55; // px/ms — a fast flick clears even under the distance threshold
@@ -69,34 +61,7 @@ const NORMAL_EXIT_MS: Record<"left" | "right", number> = {
 
 // Deterministic "randomness" from a filename, so each sheet in the stack
 // keeps the same tiny tilt/offset across re-renders instead of jittering.
-function seededOffset(seed: string, index: number) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) {
-    h = (h << 5) - h + seed.charCodeAt(i);
-    h |= 0;
-  }
-  const n = (i: number) => {
-    const x = Math.sin(h + i * 97.13) * 10000;
-    return x - Math.floor(x); // 0..1
-  };
-  const rotate = (n(index) - 0.5) * 3; // subtle — minimal stack, not a paper toss
-  const shiftX = (n(index + 1) - 0.5) * 6;
-  return { rotate, shiftX };
-}
 
-function cacheSet(
-  map: Map<string, string>,
-  key: string,
-  value: string,
-  limit = 60,
-) {
-  map.delete(key);
-  map.set(key, value);
-  if (map.size > limit) {
-    const oldest = map.keys().next().value;
-    if (oldest !== undefined) map.delete(oldest);
-  }
-}
 
 // Durasi animasi undo — HARUS sama dengan App.css (.undo-from-back / .undo-from-tray).
 const UNDO_BACK_MS = 420;
@@ -106,48 +71,10 @@ let toastId = 0;
 
 // Kartu belakang dimuat di dalam kotak kartu depan (94%), rasio asli dijaga.
 // Foto memanjang (rasio ekstrem) tampil di kartu normal dan isinya digulir.
-const LONG_MIN = 0.4;
-const LONG_MAX = 2.5;
-function longKindOf(r: number | null | undefined): "tall" | "wide" | undefined {
-  if (!r) return undefined;
-  if (r < LONG_MIN) return "tall";
-  if (r > LONG_MAX) return "wide";
-  return undefined;
-}
-function shapeRatio(r: number): number {
-  const k = longKindOf(r);
-  return k === "tall" ? 0.72 : k === "wide" ? 4 / 3 : r;
-}
 
-function backCardStyle(
-  r0: number | undefined,
-  box: { w: number; h: number } | null,
-): React.CSSProperties | undefined {
-  if (!r0) return undefined;
-  const r = shapeRatio(r0);
-  if (!box || !box.w || !box.h) return { aspectRatio: `${r}` };
-  const w = Math.min(box.w * 0.8, box.h * 0.8 * r);
-  return {
-    aspectRatio: `${r}`,
-    width: w,
-    height: w / r,
-    maxWidth: "none",
-    maxHeight: "none",
-  };
-}
 
 // Pisahkan "nama.ext" menjadi base + ext (ext termasuk titik, atau "").
-const extOf = (name: string) => {
-  const i = name.lastIndexOf(".");
-  return i > 0 ? name.slice(i + 1).toUpperCase() : "FILE";
-};
 
-function splitName(name: string) {
-  const i = name.lastIndexOf(".");
-  if (i <= 0) return { base: name, ext: "" };
-  return { base: name.slice(0, i), ext: name.slice(i) };
-}
-const cleanBase = (v: string) => v.replace(/[\/\\:]/g, "-").trim();
 
 // Spinner yang baru dirender setelah delay (default 500ms) sejak elemen
 // ini dimount — mencegah "flash" spinner untuk loading yang cepat selesai.
