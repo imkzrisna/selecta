@@ -1344,9 +1344,13 @@ function App() {
   // --- Simpan: pindahkan semua foto terpilih ke folder tujuan ---
   const exportFiles = async () => {
     if (isProcessing || selectedPhotos.length === 0 || !destFolder) return;
+    if (!reviewReady) {
+      pushToast("ACC semua foto dulu sebelum ekspor.");
+      return;
+    }
     setIsProcessing(true);
     try {
-      const items = [...selectedPhotos].reverse().map((p) => {
+      const items = reviewAll.map((p) => {
         const r = renames[p.path];
         const base = r === undefined ? "" : cleanBase(r);
         return {
@@ -1422,6 +1426,8 @@ function App() {
     reviewHist.current = [...reviewHist.current, a];
     setReviewUndoCount(reviewHist.current.length);
   };
+
+  const reviewReady = reviewPending.length === 0 && reviewAll.length > 0;
 
   const reviewBack = useCallback(() => {
     const c = reviewPending[0];
@@ -1844,9 +1850,10 @@ function App() {
             <button
               className="primary review-save"
               onClick={() => setStage("export")}
-              disabled={isProcessing || all.length === 0}
+              disabled={isProcessing || all.length === 0 || list.length > 0}
+              title={list.length > 0 ? `ACC semua foto dulu (${list.length} belum)` : "Lanjut ke ekspor"}
             >
-              {`Ekspor ${all.length} file ›`}
+              {list.length > 0 ? `${list.length} belum di-ACC` : `Ekspor ${all.length} file ›`}
             </button>
           </div>
         </div>
@@ -2137,7 +2144,7 @@ function App() {
     return (
       <ExportScreen
         toastStack={ToastStack}
-        count={selectedPhotos.length}
+        count={reviewAll.length}
         destFolder={destFolder}
         isProcessing={isProcessing}
         exportMode={exportMode}
