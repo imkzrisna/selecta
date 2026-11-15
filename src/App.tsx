@@ -2172,6 +2172,34 @@ function App() {
           foto disimpan
         </p>
         <p className="done-path mono">{exportOutput || destFolder}</p>
+        <button
+          className="ghost-btn"
+          disabled={isProcessing}
+          onClick={async () => {
+            const yes = await ask(
+              "Semua file dari ekspor terakhir akan dikembalikan ke folder sumber. Lanjutkan?",
+              { title: "Kembalikan ekspor", kind: "warning", okLabel: "Kembalikan", cancelLabel: "Batal" },
+            );
+            if (!yes) return;
+            setIsProcessing(true);
+            try {
+              const r = await invoke<{ restored: number; failed: string[] }>("undo_last_export");
+              if (r.failed.length > 0) console.warn("Kembalikan gagal sebagian:", r.failed);
+              pushToast(
+                r.failed.length > 0
+                  ? `${r.restored} dikembalikan, ${r.failed.length} gagal.`
+                  : `${r.restored} file dikembalikan.`,
+              );
+              if (r.failed.length === 0) setStage("setup");
+            } catch (e) {
+              pushToast(String(e));
+            } finally {
+              setIsProcessing(false);
+            }
+          }}
+        >
+          Kembalikan ekspor
+        </button>
         <button className="primary" onClick={resetApp}>
           Mulai Roll Baru
         </button>

@@ -516,12 +516,19 @@ fn move_file(src: &str, dst: &Path) -> Result<(), String> {
     if fs::rename(src, dst).is_ok() {
         return Ok(());
     }
+    let want = fs::metadata(src).map_err(|e| e.to_string())?.len();
     fs::copy(src, dst).map_err(|e| e.to_string())?;
+    let got = fs::metadata(dst).map(|m| m.len()).unwrap_or(0);
+    if got != want {
+        let _ = fs::remove_file(dst);
+        return Err("Ukuran hasil salinan tidak cocok, file asli dipertahankan".into());
+    }
     fs::remove_file(src).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn export_files(
+    app: AppHandle,
     items: Vec<ExportItem>,
     dest_folder: String,
     new_folder: Option<String>,
@@ -539,6 +546,8 @@ fn export_files(
     let mut failed: Vec<String> = Vec::new();
     let mut ok = 0usize;
     let output: String;
+    let mut moves: Vec<(String, String)> = Vec::new();
+    let mut zip_out: Option<String> = None;
 
     if mode == "zip" {
         let base = match zip_name.as_deref().map(str::trim) {
@@ -569,6 +578,7 @@ fn export_files(
                 Ok(()) => {
                     ok += 1;
                     zipped.push(it.path.clone());
+                    moves.push((it.path.clone(), it.name.clone()));
                 }
                 Err(e) => failed.push(format!("{}: {}", it.name, e)),
             }
@@ -581,11 +591,13 @@ fn export_files(
             }
         }
         output = zip_path.to_string_lossy().to_string();
+        zip_out = Some(output.clone());
     } else {
         for it in &items {
             let res: Result<(), String> = (|| {
                 let out = unique_path(&target, &it.name);
                 move_file(&it.path, &out)?;
+                moves.push((it.path.clone(), out.to_string_lossy().to_string()));
                 Ok(())
             })();
             match res {
@@ -596,7 +608,101 @@ fn export_files(
         output = target.to_string_lossy().to_string();
     }
 
+    if !moves.is_empty() {
+        let log = serde_json::json!({
+            "mode": mode,
+            "zip": zip_out,
+            "moves": moves,
+        });
+        let _ = write_export_log(&app, &log.to_string());
+    }
     Ok(ExportResult { output, ok, failed })
+}
+
+fn export_log_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = cache::cache_dir(app)?.join("export-logs");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("last.json"))
+}
+
+fn write_export_log(app: &AppHandle, data: &str) -> Result<(), String> {
+    fs::write(export_log_path(app)?, data).map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+struct UndoResult {
+    restored: usize,
+    failed: Vec<String>,
+}
+
+#[tauri::command]
+fn has_export_log(app: AppHandle) -> bool {
+    export_log_path(&app).map(|p| p.exists()).unwrap_or(false)
+}
+
+#[tauri::command]
+fn undo_last_export(app: AppHandle) -> Result<UndoResult, String> {
+    let lp = export_log_path(&app)?;
+    let raw = fs::read_to_string(&lp).map_err(|_| "Tidak ada ekspor untuk dikembalikan".to_string())?;
+    let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    let moves: Vec<(String, String)> = v["moves"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|m| Some((m[0].as_str()?.to_string(), m[1].as_str()?.to_string())))
+                .collect()
+        })
+        .unwrap_or_default();
+    let zip_path = v["zip"].as_str().map(|s| s.to_string());
+    let mut restored = 0usize;
+    let mut failed: Vec<String> = Vec::new();
+
+    let dest_for = |orig: &str| -> PathBuf {
+        let o = Path::new(orig);
+        let dir = o.parent().unwrap_or(Path::new("."));
+        let name = o.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        unique_path(dir, &name)
+    };
+
+    if let Some(zp) = zip_path {
+        match fs::File::open(&zp).map_err(|e| e.to_string()).and_then(|f| zip::ZipArchive::new(f).map_err(|e| e.to_string())) {
+            Ok(mut ar) => {
+                // entri ZIP berurutan sama dengan urutan moves
+                for (i, (orig, _)) in moves.iter().enumerate() {
+                    let res: Result<(), String> = (|| {
+                        let mut entry = ar.by_index(i).map_err(|e| e.to_string())?;
+                        let out = dest_for(orig);
+                        let mut f = fs::File::create(&out).map_err(|e| e.to_string())?;
+                        std::io::copy(&mut entry, &mut f).map_err(|e| e.to_string())?;
+                        Ok(())
+                    })();
+                    match res {
+                        Ok(()) => restored += 1,
+                        Err(e) => failed.push(format!("{}: {}", orig, e)),
+                    }
+                }
+                if failed.is_empty() {
+                    let _ = fs::remove_file(&zp);
+                }
+            }
+            Err(e) => failed.push(format!("ZIP tidak bisa dibuka: {}", e)),
+        }
+    } else {
+        for (orig, dst) in &moves {
+            if !Path::new(dst).exists() {
+                failed.push(format!("{}: file hasil sudah tidak ada", dst));
+                continue;
+            }
+            match move_file(dst, &dest_for(orig)) {
+                Ok(()) => restored += 1,
+                Err(e) => failed.push(format!("{}: {}", dst, e)),
+            }
+        }
+    }
+    if failed.is_empty() {
+        let _ = fs::remove_file(&lp);
+    }
+    Ok(UndoResult { restored, failed })
 }
 
 // 5. Gambar resolusi penuh untuk mode zoom (tanpa penurunan kualitas).
@@ -687,6 +793,8 @@ pub fn run() {
             move_photo,
             scan_media,
             export_files,
+            has_export_log,
+            undo_last_export,
             save_session,
             load_session,
             clear_session,
