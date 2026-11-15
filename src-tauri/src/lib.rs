@@ -584,30 +584,8 @@ fn export_files(
     } else {
         for it in &items {
             let res: Result<(), String> = (|| {
-                let ext = Path::new(&it.path)
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("")
-                    .to_lowercase();
-                let is_image = kind_for_ext(&ext) == Some("image");
-                if mode == "jpg" && is_image && ext != "jpg" && ext != "jpeg" {
-                    let (stem, _) = split_name(&it.name);
-                    let out = unique_path(&target, &format!("{}.jpg", stem));
-                    let output = Command::new("sips")
-                        .args(["-s", "format", "jpeg", "-s", "formatOptions", "92"])
-                        .arg(&it.path)
-                        .arg("--out")
-                        .arg(&out)
-                        .output()
-                        .map_err(|e| format!("Gagal menjalankan sips: {}", e))?;
-                    if !output.status.success() {
-                        return Err(String::from_utf8_lossy(&output.stderr).to_string());
-                    }
-                    fs::remove_file(&it.path).map_err(|e| e.to_string())?;
-                } else {
-                    let out = unique_path(&target, &it.name);
-                    move_file(&it.path, &out)?;
-                }
+                let out = unique_path(&target, &it.name);
+                move_file(&it.path, &out)?;
                 Ok(())
             })();
             match res {

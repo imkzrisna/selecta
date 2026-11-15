@@ -2865,22 +2865,6 @@ function App() {
                   </div>
                 )}
 
-                {swipeProgress > 0.15 && !isExiting && (
-                  <span
-                    className="stamp stamp-select"
-                    style={{ opacity: swipeProgress }}
-                  >
-                    Pilih
-                  </span>
-                )}
-                {swipeProgress < -0.15 && !isExiting && (
-                  <span
-                    className="stamp stamp-reject"
-                    style={{ opacity: -swipeProgress }}
-                  >
-                    Lewati
-                  </span>
-                )}
               </div>
 
               <div className="sprocket-row" aria-hidden="true">
