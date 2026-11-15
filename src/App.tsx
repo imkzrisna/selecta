@@ -10,6 +10,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
+import FilterMenu from "./components/ui/FilterMenu";
 import ExportScreen from "./components/screens/ExportScreen";
 import { FolderGlyph, TrayGlyph, FilterGlyph } from "./components/ui/Glyphs";
 import { RollDial, ProgressRing } from "./components/ui/Dials";
@@ -295,25 +296,6 @@ function App() {
     (e.target as Element).releasePointerCapture?.(e.pointerId);
   }, []);
   const [trayOpen, setTrayOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!filterOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setFilterOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFilterOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [filterOpen]);
   const trayRef = useRef<HTMLDivElement>(null);
 
   // A photo from the dropdown currently shown large in the lightbox.
@@ -2212,57 +2194,17 @@ function App() {
           <span className="stat-value">{selectedCount}</span> / {totalLoaded}{" "}
           terpilih
         </span>
-        {(() => {
-          const opts = [
-            { value: "all", label: "Semua", count: queue.length },
-            { value: "image", label: "Foto", count: queue.filter((p) => p.kind === "image").length },
-            { value: "pdf", label: "PDF", count: queue.filter((p) => p.kind === "pdf").length },
-            { value: "video", label: "Video", count: queue.filter((p) => p.kind === "video").length },
-          ] as const;
-          const active = opts.find((o) => o.value === mediaFilter) ?? opts[0];
-          return (
-            <div className="filter-menu" ref={filterRef}>
-              <button
-                type="button"
-                className={`filter-trigger${filterOpen ? " is-open" : ""}`}
-                onClick={() => setFilterOpen((o) => !o)}
-                disabled={isProcessing || isExiting}
-                aria-haspopup="listbox"
-                aria-expanded={filterOpen}
-                title="Filter jenis media"
-              >
-                <span className="filter-ico">
-                  <FilterGlyph kind={active.value} />
-                </span>
-                <span className="filter-label">{active.label}</span>
-                <span className="filter-chevron" aria-hidden="true">▾</span>
-              </button>
-              {filterOpen && (
-                <div className="filter-pop" role="listbox" aria-label="Filter jenis media">
-                  {opts.map((o) => (
-                    <button
-                      key={o.value}
-                      type="button"
-                      role="option"
-                      aria-selected={mediaFilter === o.value}
-                      className={`filter-opt${mediaFilter === o.value ? " is-active" : ""}`}
-                      onClick={() => {
-                        setMediaFilter(o.value);
-                        setFilterOpen(false);
-                      }}
-                    >
-                      <span className="filter-ico">
-                        <FilterGlyph kind={o.value} />
-                      </span>
-                      <span className="filter-opt-label">{o.label}</span>
-                      <span className="filter-opt-count mono">{o.count}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        <FilterMenu
+          value={mediaFilter}
+          onChange={setMediaFilter}
+          disabled={isProcessing || isExiting}
+          counts={{
+            all: queue.length,
+            image: queue.filter((p) => p.kind === "image").length,
+            pdf: queue.filter((p) => p.kind === "pdf").length,
+            video: queue.filter((p) => p.kind === "video").length,
+          }}
+        />
         <div className="top-bar-actions">
           <button
             className={`ghost-btn${undoFlash ? " undo-flash" : ""}`}
