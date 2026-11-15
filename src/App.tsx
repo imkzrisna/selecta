@@ -15,14 +15,28 @@ import ExportScreen from "./components/screens/ExportScreen";
 import { FolderGlyph, TrayGlyph, FilterGlyph } from "./components/ui/Glyphs";
 import { RollDial, ProgressRing } from "./components/ui/Dials";
 import { DelayedSpinner } from "./components/ui/DelayedSpinner";
-import type { PhotoKind, PhotoEntry, Stage, ExitDirection, HistoryEntry, Toast } from "./lib/types";
-import { seededOffset, cacheSet, splitName, cleanBase, extOf, longKindOf, shapeRatio, backCardStyle } from "./lib/utils";
+import type {
+  PhotoKind,
+  PhotoEntry,
+  Stage,
+  ExitDirection,
+  HistoryEntry,
+  Toast,
+} from "./lib/types";
+import {
+  seededOffset,
+  cacheSet,
+  splitName,
+  cleanBase,
+  extOf,
+  longKindOf,
+  shapeRatio,
+  backCardStyle,
+} from "./lib/utils";
 import PdfViewer from "./components/media/PdfViewer";
 import VideoViewer from "./components/media/VideoViewer";
 import ImageZoomViewer from "./components/media/ImageZoomViewer";
 import BackThumb, { prefetchThumb } from "./components/media/BackThumb";
-
-
 
 const SWIPE_THRESHOLD = 110;
 const VELOCITY_THRESHOLD = 0.55; // px/ms — a fast flick clears even under the distance threshold
@@ -67,7 +81,6 @@ const NORMAL_EXIT_MS: Record<"left" | "right", number> = {
 // Deterministic "randomness" from a filename, so each sheet in the stack
 // keeps the same tiny tilt/offset across re-renders instead of jittering.
 
-
 // Durasi animasi undo — HARUS sama dengan App.css (.undo-from-back / .undo-from-tray).
 const UNDO_BACK_MS = 420;
 const UNDO_TRAY_MS = 460;
@@ -77,9 +90,7 @@ let toastId = 0;
 // Kartu belakang dimuat di dalam kotak kartu depan (94%), rasio asli dijaga.
 // Foto memanjang (rasio ekstrem) tampil di kartu normal dan isinya digulir.
 
-
 // Pisahkan "nama.ext" menjadi base + ext (ext termasuk titik, atau "").
-
 
 // Spinner yang baru dirender setelah delay (default 500ms) sejak elemen
 // ini dimount — mencegah "flash" spinner untuk loading yang cepat selesai.
@@ -416,7 +427,8 @@ function App() {
   // --- Mulai proses: load semua foto dari folder sumber ---
   // Simpan sesi otomatis (jeda 600ms); hapus kalau tidak ada keputusan.
   useEffect(() => {
-    if (!sourceFolder || !["sorting", "review", "export"].includes(stage)) return;
+    if (!sourceFolder || !["sorting", "review", "export"].includes(stage))
+      return;
     const timer = window.setTimeout(() => {
       if (selectedPhotos.length === 0 && history.current.length === 0) {
         invoke("clear_session", { key: sourceFolder }).catch(() => {});
@@ -426,7 +438,10 @@ function App() {
         queue: queue.map((p) => p.path),
         selected: selectedPhotos.map((p) => p.path),
         renames,
-        history: history.current.map((h) => ({ type: h.type, path: h.photo.path })),
+        history: history.current.map((h) => ({
+          type: h.type,
+          path: h.photo.path,
+        })),
       });
       invoke("save_session", { key: sourceFolder, data }).catch((e) =>
         console.warn("Gagal menyimpan sesi:", e),
@@ -451,7 +466,9 @@ function App() {
       let startSelected: PhotoEntry[] = [];
       let startRenames: Record<string, string> = {};
       try {
-        const raw = await invoke<string | null>("load_session", { key: sourceFolder });
+        const raw = await invoke<string | null>("load_session", {
+          key: sourceFolder,
+        });
         if (raw) {
           const s = JSON.parse(raw);
           const map = new Map(photos.map((p) => [p.path, p]));
@@ -461,7 +478,9 @@ function App() {
           const selSet = new Set(sel.map((p) => p.path));
           const q = pick(s.queue).filter((p) => !selSet.has(p.path));
           const qSet = new Set(q.map((p) => p.path));
-          const rest = photos.filter((p) => !selSet.has(p.path) && !qSet.has(p.path));
+          const rest = photos.filter(
+            (p) => !selSet.has(p.path) && !qSet.has(p.path),
+          );
           const hist: HistoryEntry[] = (s.history ?? [])
             .map((h: { type: "reject" | "select"; path: string }) => {
               const photo = map.get(h.path);
@@ -471,7 +490,12 @@ function App() {
           if (sel.length > 0 || hist.length > 0) {
             const yes = await ask(
               `Ada sesi sebelumnya untuk folder ini: ${sel.length} terpilih, ${q.length + rest.length} tersisa. Lanjutkan?`,
-              { title: "Lanjutkan sesi", kind: "info", okLabel: "Lanjutkan", cancelLabel: "Mulai dari awal" },
+              {
+                title: "Lanjutkan sesi",
+                kind: "info",
+                okLabel: "Lanjutkan",
+                cancelLabel: "Mulai dari awal",
+              },
             );
             if (yes) {
               startQueue = [...q, ...rest];
@@ -498,7 +522,9 @@ function App() {
         setPrepareProgress({ done, total });
       });
       // Thumbnail PDF/video untuk semua file (antre satu per satu).
-      const docs = startQueue.filter((p) => p.kind === "pdf" || p.kind === "video");
+      const docs = startQueue.filter(
+        (p) => p.kind === "pdf" || p.kind === "video",
+      );
       docs.forEach((p) => prefetchThumb(p.kind as "pdf" | "video", p.path));
       setStage("sorting");
     } catch (e) {
@@ -525,7 +551,13 @@ function App() {
       if (p.kind === "pdf" || p.kind === "video") prefetchThumb(p.kind, p.path);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, visibleQueue[0]?.path, visibleQueue[1]?.path, visibleQueue[2]?.path, visibleQueue[3]?.path]);
+  }, [
+    stage,
+    visibleQueue[0]?.path,
+    visibleQueue[1]?.path,
+    visibleQueue[2]?.path,
+    visibleQueue[3]?.path,
+  ]);
 
   // Kartu depan memakai file ASLI (tanpa kompresi); preview kecil hanya cadangan.
   const frontFull = useRef<Map<string, string>>(new Map());
@@ -579,7 +611,8 @@ function App() {
         img.decode().catch(() => {});
       };
       hold("p:" + p.path, previewCache.current.get(p.path));
-      if (i < DECODE_FULL_WINDOW) hold("f:" + p.path, frontFull.current.get(p.path));
+      if (i < DECODE_FULL_WINDOW)
+        hold("f:" + p.path, frontFull.current.get(p.path));
       // prefetch file asli untuk 2 kartu berikutnya
       if (i < DECODE_FULL_WINDOW && !frontFull.current.has(p.path)) {
         invoke<string>("get_full_image", { path: p.path })
@@ -613,7 +646,8 @@ function App() {
         const g = document.createElement("div");
         g.className = `preview-card exit-${d} is-ghost`;
         g.style.cssText = "opacity:0.01;pointer-events:none;inset:3%;";
-        g.innerHTML = '<div class="preview-photo-inner" style="aspect-ratio:1"></div>';
+        g.innerHTML =
+          '<div class="preview-photo-inner" style="aspect-ratio:1"></div>';
         box.appendChild(g);
         window.setTimeout(() => g.remove(), 500);
       });
@@ -622,15 +656,16 @@ function App() {
   }, [stage]);
 
   // Ukuran kartu depan, dipakai untuk menyamakan ukuran kartu belakang.
-  const [frontBox, setFrontBox] = useState<{ w: number; h: number } | null>(null);
+  const [frontBox, setFrontBox] = useState<{ w: number; h: number } | null>(
+    null,
+  );
   useEffect(() => {
     if (stage !== "sorting" || visibleQueue.length === 0) return;
     let ro: ResizeObserver | null = null;
     let raf = 0;
     const attach = () => {
-      const el = cardRef.current?.querySelector(
-        ".preview-photo-inner",
-      )?.parentElement as HTMLElement | null;
+      const el = cardRef.current?.querySelector(".preview-photo-inner")
+        ?.parentElement as HTMLElement | null;
       if (!el) {
         raf = requestAnimationFrame(attach);
         return;
@@ -773,19 +808,20 @@ function App() {
         window.setTimeout(() => setTrayBump(false), 260);
       }
       const nowU = performance.now();
-      undoStreak.current = nowU - lastUndoAt.current < 450 ? undoStreak.current + 1 : 0;
+      undoStreak.current =
+        nowU - lastUndoAt.current < 450 ? undoStreak.current + 1 : 0;
       lastUndoAt.current = nowU;
       const baseMs = kind === "from-tray" ? UNDO_TRAY_MS : UNDO_BACK_MS;
-      const ms = Math.max(110, Math.round(baseMs * Math.pow(0.82, undoStreak.current)));
+      const ms = Math.max(
+        110,
+        Math.round(baseMs * Math.pow(0.82, undoStreak.current)),
+      );
       setUndoAnim({ path: photo.path, kind, x, y, ms });
       // Kunci swipe selama kartu masih "masuk".
       exitInProgress.current = true;
-      window.setTimeout(
-        () => {
-          exitInProgress.current = false;
-        },
-        ms,
-      );
+      window.setTimeout(() => {
+        exitInProgress.current = false;
+      }, ms);
     },
     [],
   );
@@ -818,7 +854,10 @@ function App() {
     setUndoFlash(true);
     window.setTimeout(() => setUndoFlash(false), 320);
 
-    startUndoAnim(last.photo, last.type === "select" ? "from-tray" : "from-back");
+    startUndoAnim(
+      last.photo,
+      last.type === "select" ? "from-tray" : "from-back",
+    );
     if (last.type === "select") {
       setSelectedCount((c) => Math.max(0, c - 1));
       setSelectedPhotos((prev) =>
@@ -947,8 +986,14 @@ function App() {
       if (durationMs && cardRef.current) {
         const st = cardRef.current.style;
         st.setProperty("--burst-ms", `${durationMs}ms`);
-        st.setProperty("--burst-fade", `${Math.max(30, Math.round(durationMs / 3))}ms`);
-        st.setProperty("--burst-fade-delay", `${Math.round(durationMs * 0.66)}ms`);
+        st.setProperty(
+          "--burst-fade",
+          `${Math.max(30, Math.round(durationMs / 3))}ms`,
+        );
+        st.setProperty(
+          "--burst-fade-delay",
+          `${Math.round(durationMs * 0.66)}ms`,
+        );
       }
       // Arahkan kartu ke tengah tray "Terpilih" (kartu & tray diukur sekarang).
       if (direction === "right" && cardRef.current && trayRef.current) {
@@ -1048,10 +1093,15 @@ function App() {
     // lihat App.css) selama CARD_POP_IN_MS. Gerbang baru dibuka setelah
     // animasi masuk itu juga selesai, supaya swipe berikutnya tidak bisa
     // memotong kartu yang masih dalam proses "muncul".
-    window.setTimeout(() => {
-      exitInProgress.current = false;
-      drainRef.current();
-    }, burstRef.current ? Math.max(6, BURST_GATE_MS - burstStreak.current * 2) : CARD_POP_IN_MS);
+    window.setTimeout(
+      () => {
+        exitInProgress.current = false;
+        drainRef.current();
+      },
+      burstRef.current
+        ? Math.max(6, BURST_GATE_MS - burstStreak.current * 2)
+        : CARD_POP_IN_MS,
+    );
   }, [exitDir, visibleQueue, handleReject, handleSelect]);
 
   useEffect(() => {
@@ -1094,8 +1144,14 @@ function App() {
       ghost.style.setProperty("--start-rot", "0deg");
       if (fast) {
         ghost.style.setProperty("--burst-ms", `${ms}ms`);
-        ghost.style.setProperty("--burst-fade", `${Math.max(30, Math.round(ms / 3))}ms`);
-        ghost.style.setProperty("--burst-fade-delay", `${Math.round(ms * 0.66)}ms`);
+        ghost.style.setProperty(
+          "--burst-fade",
+          `${Math.max(30, Math.round(ms / 3))}ms`,
+        );
+        ghost.style.setProperty(
+          "--burst-fade-delay",
+          `${Math.round(ms * 0.66)}ms`,
+        );
       }
       if (dir === "right" && trayRef.current) {
         const c = card.getBoundingClientRect();
@@ -1199,7 +1255,10 @@ function App() {
   // Tombol ditahan lalu dilepas: buang sisa antrean supaya berhenti tepat.
   useEffect(() => {
     const up = (e: KeyboardEvent) => {
-      if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && heldRepeat.current) {
+      if (
+        (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+        heldRepeat.current
+      ) {
         heldRepeat.current = false;
         pendingDirs.current = [];
       }
@@ -1367,18 +1426,22 @@ function App() {
       const items = [...selectedPhotos].reverse().map((p) => {
         const r = renames[p.path];
         const base = r === undefined ? "" : cleanBase(r);
-        return { path: p.path, name: base ? base + splitName(p.name).ext : p.name };
+        return {
+          path: p.path,
+          name: base ? base + splitName(p.name).ext : p.name,
+        };
       });
-      const res = await invoke<{ output: string; ok: number; failed: string[] }>(
-        "export_files",
-        {
-          items,
-          destFolder,
-          newFolder: null,
-          mode: exportMode,
-          zipName: exportMode === "zip" ? cleanBase(exportZipName) || null : null,
-        },
-      );
+      const res = await invoke<{
+        output: string;
+        ok: number;
+        failed: string[];
+      }>("export_files", {
+        items,
+        destFolder,
+        newFolder: null,
+        mode: exportMode,
+        zipName: exportMode === "zip" ? cleanBase(exportZipName) || null : null,
+      });
       if (res.failed.length > 0) {
         console.warn("Export gagal sebagian:", res.failed);
         pushToast(`${res.failed.length} file gagal diekspor.`);
@@ -1404,7 +1467,9 @@ function App() {
       .map((x) => byPath.get(x))
       .filter(Boolean) as PhotoEntry[];
     const inOrder = new Set(ordered.map((p) => p.path));
-    const rest = [...selectedPhotos].reverse().filter((p) => !inOrder.has(p.path));
+    const rest = [...selectedPhotos]
+      .reverse()
+      .filter((p) => !inOrder.has(p.path));
     return [...ordered, ...rest];
   }, [selectedPhotos, reviewOrder]);
   const reviewPending = useMemo(
@@ -1439,7 +1504,10 @@ function App() {
     const c = reviewPending[0];
     if (!c || reviewPending.length < 2) return;
     pushReviewHist({ type: "back", prevOrder: reviewAll.map((p) => p.path) });
-    setReviewOrder([...reviewAll.map((p) => p.path).filter((x) => x !== c.path), c.path]);
+    setReviewOrder([
+      ...reviewAll.map((p) => p.path).filter((x) => x !== c.path),
+      c.path,
+    ]);
   }, [reviewPending, reviewAll]);
   const reviewAccept = useCallback(() => {
     const c = reviewPending[0];
@@ -1448,7 +1516,9 @@ function App() {
     setApproved((prev) => [...prev, c.path]);
   }, [reviewPending]);
   const [reviewCardEl, setReviewCardEl] = useState<HTMLDivElement | null>(null);
-  const [reviewBox, setReviewBox] = useState<{ w: number; h: number } | null>(null);
+  const [reviewBox, setReviewBox] = useState<{ w: number; h: number } | null>(
+    null,
+  );
   useEffect(() => {
     if (!reviewCardEl) return;
     const upd = () =>
@@ -1493,7 +1563,11 @@ function App() {
   const reviewEject = useCallback(() => {
     const c = reviewPending[0];
     if (!c) return;
-    pushReviewHist({ type: "eject", photo: c, prevOrder: reviewAll.map((p) => p.path) });
+    pushReviewHist({
+      type: "eject",
+      photo: c,
+      prevOrder: reviewAll.map((p) => p.path),
+    });
     setApproved((prev) => prev.filter((x) => x !== c.path));
     handleRemoveSelected(c);
   }, [reviewPending, reviewAll, handleRemoveSelected]);
@@ -1510,7 +1584,10 @@ function App() {
     } else {
       const ph = last.photo;
       setQueue((prev) => prev.filter((p) => p.path !== ph.path));
-      setSelectedPhotos((prev) => [ph, ...prev.filter((p) => p.path !== ph.path)]);
+      setSelectedPhotos((prev) => [
+        ph,
+        ...prev.filter((p) => p.path !== ph.path),
+      ]);
       setSelectedCount((c) => c + 1);
       setReviewOrder(last.prevOrder);
       recordHistory({ type: "select", photo: ph });
@@ -1522,10 +1599,20 @@ function App() {
   zoomPhotoRef.current = zoomPhoto;
   const fullViewRef = useRef(fullViewPhoto);
   fullViewRef.current = fullViewPhoto;
-  const reviewActs = useRef({ back: reviewBack, accept: reviewAccept, eject: reviewEject });
-  reviewActs.current = { back: reviewBack, accept: reviewAccept, eject: reviewEject };
+  const reviewActs = useRef({
+    back: reviewBack,
+    accept: reviewAccept,
+    eject: reviewEject,
+  });
+  reviewActs.current = {
+    back: reviewBack,
+    accept: reviewAccept,
+    eject: reviewEject,
+  };
   const reviewPend = useRef<("left" | "right" | "down")[]>([]);
-  const reviewFire = useRef<(d: "left" | "right" | "down", fast: boolean) => void>(() => {});
+  const reviewFire = useRef<
+    (d: "left" | "right" | "down", fast: boolean) => void
+  >(() => {});
   const [reviewUndoAnim, setReviewUndoAnim] = useState<{
     path: string;
     kind: "from-back" | "from-tray";
@@ -1577,8 +1664,14 @@ function App() {
       ghost.style.setProperty("--start-rot", "0deg");
       if (fast) {
         ghost.style.setProperty("--burst-ms", `${ms}ms`);
-        ghost.style.setProperty("--burst-fade", `${Math.max(30, Math.round(ms / 3))}ms`);
-        ghost.style.setProperty("--burst-fade-delay", `${Math.round(ms * 0.66)}ms`);
+        ghost.style.setProperty(
+          "--burst-fade",
+          `${Math.max(30, Math.round(ms / 3))}ms`,
+        );
+        ghost.style.setProperty(
+          "--burst-fade-delay",
+          `${Math.round(ms * 0.66)}ms`,
+        );
       }
       box.appendChild(ghost);
       const srcC = card.querySelectorAll("canvas");
@@ -1615,7 +1708,8 @@ function App() {
     last.current = now;
     if (repeat) heldRepeat.current = true;
     if (exitInProgress.current) {
-      if (fast && reviewPend.current.length < MAX_PENDING_BURST) reviewPend.current.push(dir);
+      if (fast && reviewPend.current.length < MAX_PENDING_BURST)
+        reviewPend.current.push(dir);
       return;
     }
     reviewFire.current(dir, fast);
@@ -1641,9 +1735,12 @@ function App() {
     if (path) {
       setReviewUndoAnim({ path, kind });
       exitInProgress.current = true;
-      window.setTimeout(() => {
-        exitInProgress.current = false;
-      }, kind === "from-back" ? UNDO_BACK_MS : UNDO_TRAY_MS);
+      window.setTimeout(
+        () => {
+          exitInProgress.current = false;
+        },
+        kind === "from-back" ? UNDO_BACK_MS : UNDO_TRAY_MS,
+      );
     }
   };
   const reviewUndoFlyRef = useRef(reviewUndoFly);
@@ -1684,7 +1781,10 @@ function App() {
       }
     };
     const up = (e: KeyboardEvent) => {
-      if (["ArrowLeft", "ArrowRight", "ArrowDown"].includes(e.key) && heldRepeat.current) {
+      if (
+        ["ArrowLeft", "ArrowRight", "ArrowDown"].includes(e.key) &&
+        heldRepeat.current
+      ) {
         heldRepeat.current = false;
         reviewPend.current = [];
       }
@@ -1698,7 +1798,8 @@ function App() {
   }, [stage, isProcessing]);
 
   const resetApp = () => {
-    if (sourceFolder) invoke("clear_session", { key: sourceFolder }).catch(() => {});
+    if (sourceFolder)
+      invoke("clear_session", { key: sourceFolder }).catch(() => {});
     setStage("setup");
     setSourceFolder("");
     setDestFolder("");
@@ -1768,7 +1869,6 @@ function App() {
               {sourceFolder ? "✓" : "›"}
             </span>
           </button>
-
         </div>
 
         <button className="primary" disabled={!ready} onClick={startSorting}>
@@ -1812,10 +1912,7 @@ function App() {
           <span className="stat-value">{prepareProgress.done}</span> dari{" "}
           {total} preview siap
         </p>
-        <p className="done-path mono">
-          Mohon tunggu sebentar…
-        </p>
-
+        <p className="done-path mono">Mohon tunggu sebentar…</p>
       </div>
     );
   }
@@ -1844,7 +1941,8 @@ function App() {
             ← Kembali
           </button>
           <span className="top-bar-mid">
-            Disetujui <span className="stat-value">{approvedCount}</span> / {all.length}
+            Disetujui <span className="stat-value">{approvedCount}</span> /{" "}
+            {all.length}
           </span>
           <div className="top-bar-actions">
             <button
@@ -1886,7 +1984,10 @@ function App() {
                   className="stack-sheet-inner"
                   data-kind={behind.kind}
                   data-long={longKindOf(stackAspectRatios[behind.path])}
-                  style={backCardStyle(stackAspectRatios[behind.path], reviewBox)}
+                  style={backCardStyle(
+                    stackAspectRatios[behind.path],
+                    reviewBox,
+                  )}
                 >
                   {behind.kind !== "image" && (
                     <BackThumb
@@ -1895,28 +1996,33 @@ function App() {
                       name={behind.name}
                       onRatio={(r) =>
                         setStackAspectRatios((prev) =>
-                          prev[behind.path] === r ? prev : { ...prev, [behind.path]: r },
+                          prev[behind.path] === r
+                            ? prev
+                            : { ...prev, [behind.path]: r },
                         )
                       }
                     />
                   )}
-                  {behind.kind === "image" && previewCache.current.get(behind.path) && (
-                    <img
-                      src={previewCache.current.get(behind.path)}
-                      alt=""
-                      className="stack-sheet-thumb is-loaded"
-                      draggable={false}
-                      onLoad={(e) => {
-                        const img = e.currentTarget;
-                        if (img.naturalWidth && img.naturalHeight) {
-                          const r = img.naturalWidth / img.naturalHeight;
-                          setStackAspectRatios((prev) =>
-                            prev[behind.path] === r ? prev : { ...prev, [behind.path]: r },
-                          );
-                        }
-                      }}
-                    />
-                  )}
+                  {behind.kind === "image" &&
+                    previewCache.current.get(behind.path) && (
+                      <img
+                        src={previewCache.current.get(behind.path)}
+                        alt=""
+                        className="stack-sheet-thumb is-loaded"
+                        draggable={false}
+                        onLoad={(e) => {
+                          const img = e.currentTarget;
+                          if (img.naturalWidth && img.naturalHeight) {
+                            const r = img.naturalWidth / img.naturalHeight;
+                            setStackAspectRatios((prev) =>
+                              prev[behind.path] === r
+                                ? prev
+                                : { ...prev, [behind.path]: r },
+                            );
+                          }
+                        }}
+                      />
+                    )}
                 </div>
               </div>
             )}
@@ -1925,17 +2031,28 @@ function App() {
               (() => {
                 const baseR =
                   stackAspectRatios[cur.path] ??
-                  (cur.kind === "pdf" ? 0.707 : cur.kind === "video" ? 16 / 9 : undefined);
+                  (cur.kind === "pdf"
+                    ? 0.707
+                    : cur.kind === "video"
+                      ? 16 / 9
+                      : undefined);
                 const lk = cur.kind === "image" ? longKindOf(baseR) : undefined;
                 const shaped = baseR ? shapeRatio(baseR) : undefined;
                 const rot = -3 + seededOffset(cur.path, 1).rotate * 0.5;
                 const src =
-                  frontFull.current.get(cur.path) ?? previewCache.current.get(cur.path);
+                  frontFull.current.get(cur.path) ??
+                  previewCache.current.get(cur.path);
                 return (
                   <div
                     key={cur.path}
                     ref={setReviewCardEl}
-                    className={"preview-card" + (burst ? " is-burst" : "") + (reviewUndoAnim && reviewUndoAnim.path === cur.path ? ` undo-${reviewUndoAnim.kind}` : "")}
+                    className={
+                      "preview-card" +
+                      (burst ? " is-burst" : "") +
+                      (reviewUndoAnim && reviewUndoAnim.path === cur.path
+                        ? ` undo-${reviewUndoAnim.kind}`
+                        : "")
+                    }
                     style={{
                       zIndex: 3,
                       ["--enter-rot" as string]: `${rot}deg`,
@@ -1950,19 +2067,30 @@ function App() {
                       onScroll={(e) => {
                         if (!lk) return;
                         const el = e.currentTarget;
-                        const moved = lk === "tall" ? el.scrollTop : el.scrollLeft;
-                        if (moved > 24 && scrolledPath !== cur.path) setScrolledPath(cur.path);
+                        const moved =
+                          lk === "tall" ? el.scrollTop : el.scrollLeft;
+                        if (moved > 24 && scrolledPath !== cur.path)
+                          setScrolledPath(cur.path);
                       }}
                       onClick={() => {
                         if (exitInProgress.current) return;
-                        if (cur.kind === "pdf" || cur.kind === "video") setFullViewPhoto(cur);
+                        if (cur.kind === "pdf" || cur.kind === "video")
+                          setFullViewPhoto(cur);
                         else if (cur.kind === "image") setZoomPhoto(cur);
                       }}
                     >
                       {cur.kind === "pdf" ? (
-                        <PdfViewer path={cur.path} compact onDimensionsChange={setRatio} />
+                        <PdfViewer
+                          path={cur.path}
+                          compact
+                          onDimensionsChange={setRatio}
+                        />
                       ) : cur.kind === "video" ? (
-                        <VideoViewer path={cur.path} compact onDimensionsChange={setRatio} />
+                        <VideoViewer
+                          path={cur.path}
+                          compact
+                          onDimensionsChange={setRatio}
+                        />
                       ) : src ? (
                         <img
                           src={src}
@@ -1983,8 +2111,13 @@ function App() {
                       )}
                     </div>
                     {lk && scrolledPath !== cur.path && (
-                      <span className={`scroll-hint scroll-hint-${lk} mono review-scroll-hint`} aria-hidden="true">
-                        <span className="scroll-hint-arrow">{lk === "tall" ? "↓" : "→"}</span>
+                      <span
+                        className={`scroll-hint scroll-hint-${lk} mono review-scroll-hint`}
+                        aria-hidden="true"
+                      >
+                        <span className="scroll-hint-arrow">
+                          {lk === "tall" ? "↓" : "→"}
+                        </span>
                         Gulir
                       </span>
                     )}
@@ -1996,8 +2129,15 @@ function App() {
                 );
               })()
             ) : (
-              <div className="preview-placeholder empty-state" style={{ zIndex: 2 }}>
-                <span className="empty-title">{all.length > 0 ? "Semua sudah diperiksa" : "Tidak ada foto terpilih"}</span>
+              <div
+                className="preview-placeholder empty-state"
+                style={{ zIndex: 2 }}
+              >
+                <span className="empty-title">
+                  {all.length > 0
+                    ? "Semua sudah diperiksa"
+                    : "Tidak ada foto terpilih"}
+                </span>
                 <span className="hint-inline">
                   Klik &quot;Kembali&quot; untuk melanjutkan sortir.
                 </span>
@@ -2020,13 +2160,17 @@ function App() {
                   disabled={isProcessing}
                   value={renames[cur.path] ?? splitName(cur.name).base}
                   onChange={(e) =>
-                    setRenames((prev) => ({ ...prev, [cur.path]: e.target.value }))
+                    setRenames((prev) => ({
+                      ...prev,
+                      [cur.path]: e.target.value,
+                    }))
                   }
                   onBlur={(e) => {
                     const v = cleanBase(e.target.value);
                     setRenames((prev) => {
                       const next = { ...prev };
-                      if (!v || v === splitName(cur.name).base) delete next[cur.path];
+                      if (!v || v === splitName(cur.name).base)
+                        delete next[cur.path];
                       else next[cur.path] = v;
                       return next;
                     });
@@ -2093,7 +2237,8 @@ function App() {
             </button>
           </div>
           <p className="hint mono">
-            <kbd>←</kbd> ke belakang · <kbd>→</kbd> acc · <kbd>↓</kbd> keluarkan · <kbd>⌘Z</kbd> batal · <kbd>Esc</kbd> kembali
+            <kbd>←</kbd> ke belakang · <kbd>→</kbd> acc · <kbd>↓</kbd> keluarkan
+            · <kbd>⌘Z</kbd> batal · <kbd>Esc</kbd> kembali
           </p>
         </div>
       </div>
@@ -2158,9 +2303,14 @@ function App() {
         ? 16 / 9
         : currentAspectRatio);
   // Pose awal pop-in = pose kartu belakang depth 1 (rumus sama dengan stack-sheet).
-  const longKind = current?.kind === "image" ? longKindOf(displayAspectRatio) : undefined;
-  const shapedRatio = displayAspectRatio ? shapeRatio(displayAspectRatio) : displayAspectRatio;
-  const enterRot = current ? -3 + seededOffset(current.path, 1).rotate * 0.5 : -3;
+  const longKind =
+    current?.kind === "image" ? longKindOf(displayAspectRatio) : undefined;
+  const shapedRatio = displayAspectRatio
+    ? shapeRatio(displayAspectRatio)
+    : displayAspectRatio;
+  const enterRot = current
+    ? -3 + seededOffset(current.path, 1).rotate * 0.5
+    : -3;
   const frameNumber = totalLoaded - queue.length + 1;
   const swipeProgress = Math.max(-1, Math.min(1, dragX / SWIPE_THRESHOLD));
   const rotation = swipeProgress * 8;
@@ -2377,7 +2527,10 @@ function App() {
                           className="stack-sheet-inner"
                           data-kind={p.kind}
                           data-long={longKindOf(stackAspectRatios[p.path])}
-                          style={backCardStyle(stackAspectRatios[p.path], frontBox)}
+                          style={backCardStyle(
+                            stackAspectRatios[p.path],
+                            frontBox,
+                          )}
                         >
                           {p.kind !== "image" && (
                             <BackThumb
@@ -2471,7 +2624,10 @@ function App() {
                         (exitDir === "left" ? " exit-left" : "") +
                         (exitDir === "right" ? " exit-right" : "") +
                         (burst ? " is-burst" : "") +
-                        (!isExiting && undoAnim && current && undoAnim.path === current.path
+                        (!isExiting &&
+                        undoAnim &&
+                        current &&
+                        undoAnim.path === current.path
                           ? ` undo-${undoAnim.kind}`
                           : "")
                       }
@@ -2486,10 +2642,16 @@ function App() {
                               transform: `translateX(${dragX}px) rotate(${rotation}deg)`,
                               ["--enter-rot" as string]: `${enterRot}deg`,
                               ["--undo-x" as string]:
-                                undoAnim?.x !== undefined ? `${undoAnim.x}px` : "120%",
+                                undoAnim?.x !== undefined
+                                  ? `${undoAnim.x}px`
+                                  : "120%",
                               ["--undo-y" as string]:
-                                undoAnim?.y !== undefined ? `${undoAnim.y}px` : "0px",
-                              ["--undo-ms" as string]: undoAnim?.ms ? `${undoAnim.ms}ms` : "420ms",
+                                undoAnim?.y !== undefined
+                                  ? `${undoAnim.y}px`
+                                  : "0px",
+                              ["--undo-ms" as string]: undoAnim?.ms
+                                ? `${undoAnim.ms}ms`
+                                : "420ms",
                               zIndex: STACK_DEPTH + 1,
                             }
                       }
@@ -2505,7 +2667,9 @@ function App() {
                           (current?.kind === "pdf" || current?.kind === "video"
                             ? " is-clickable"
                             : "") +
-                          (skipResizeAnim || current?.kind === "pdf" || current?.kind === "video"
+                          (skipResizeAnim ||
+                          current?.kind === "pdf" ||
+                          current?.kind === "video"
                             ? " no-resize-anim"
                             : "")
                         }
@@ -2517,7 +2681,8 @@ function App() {
                         onScroll={(e) => {
                           if (!longKind || !current) return;
                           const el = e.currentTarget;
-                          const moved = longKind === "tall" ? el.scrollTop : el.scrollLeft;
+                          const moved =
+                            longKind === "tall" ? el.scrollTop : el.scrollLeft;
                           if (moved > 24 && scrolledPath !== current.path) {
                             setScrolledPath(current.path);
                           }
@@ -2568,12 +2733,19 @@ function App() {
                               }
                             }}
                           />
-                        ) : current && failedPreviews.current.has(current.path) &&
+                        ) : current &&
+                          failedPreviews.current.has(current.path) &&
                           !frontFull.current.has(current.path) ? (
                           <div className="nopreview-card mono">
-                            <span className="nopreview-ext">{extOf(current.name)}</span>
-                            <span className="nopreview-title">Preview tidak tersedia</span>
-                            <span className="nopreview-name">{current.name}</span>
+                            <span className="nopreview-ext">
+                              {extOf(current.name)}
+                            </span>
+                            <span className="nopreview-title">
+                              Preview tidak tersedia
+                            </span>
+                            <span className="nopreview-name">
+                              {current.name}
+                            </span>
                             <span className="nopreview-hint">
                               File tetap bisa dipilih dan diekspor
                             </span>
@@ -2608,8 +2780,13 @@ function App() {
                         )}
                       </div>
                       {longKind && current && scrolledPath !== current.path && (
-                        <span className={`scroll-hint scroll-hint-${longKind} mono`} aria-hidden="true">
-                          <span className="scroll-hint-arrow">{longKind === "tall" ? "↓" : "→"}</span>
+                        <span
+                          className={`scroll-hint scroll-hint-${longKind} mono`}
+                          aria-hidden="true"
+                        >
+                          <span className="scroll-hint-arrow">
+                            {longKind === "tall" ? "↓" : "→"}
+                          </span>
                           Gulir
                         </span>
                       )}
@@ -2636,7 +2813,6 @@ function App() {
                     </span>
                   </div>
                 )}
-
               </div>
 
               <div className="sprocket-row" aria-hidden="true">
@@ -2889,7 +3065,9 @@ function App() {
             onClick={(e) => e.stopPropagation()}
             style={
               fullViewPhoto.kind === "video" && fullViewAspectRatio
-                ? ({ "--full-aspect": `${fullViewAspectRatio}` } as React.CSSProperties)
+                ? ({
+                    "--full-aspect": `${fullViewAspectRatio}`,
+                  } as React.CSSProperties)
                 : undefined
             }
           >
@@ -2924,7 +3102,10 @@ function App() {
 
       {zoomPhoto && (
         <ImageZoomViewer
-          src={zoomFullSrc || (previewCache.current.get(zoomPhoto.path) ?? previewSrc)}
+          src={
+            zoomFullSrc ||
+            (previewCache.current.get(zoomPhoto.path) ?? previewSrc)
+          }
           name={zoomPhoto.name}
           onClose={() => setZoomPhoto(null)}
         />
@@ -2980,12 +3161,9 @@ function App() {
 
 // --- small inline glyphs, so the setup screen doesn't need an icon library ---
 
-
-
 // A dial-style progress ring for the done screen: an inner arc plus a bezel
 // of tick marks (like a light-meter or a film-advance dial) that light up
 // as the fill count goes up, so it reads as a physical instrument rather
 // than a generic loading ring.
-
 
 export default App;
