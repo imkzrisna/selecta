@@ -10,6 +10,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
+import { CARD_POP_IN_MS, NORMAL_EXIT_MS, BURST_WINDOW_MS, BURST_IDLE_MS, BURST_GATE_MS, MAX_PENDING_BURST, UNDO_BACK_MS, UNDO_TRAY_MS, burstExitMs } from "./lib/motion";
 import { flyGhost } from "./lib/ghost";
 import ShortcutsModal from "./components/ui/ShortcutsModal";
 import FilterMenu from "./components/ui/FilterMenu";
@@ -49,43 +50,12 @@ const DECODE_PREVIEW_WINDOW = 20;
 const DECODE_FULL_WINDOW = 10;
 // false = kartu tidak bisa di-swipe dengan kursor; hanya ← / → di keyboard.
 const DRAG_SWIPE_ENABLED = false as boolean;
-// Harus SAMA PERSIS dengan durasi @keyframes card-pop-in di App.css
-// (animation: card-pop-in 0.38s ...). Dipakai untuk menahan guard exit
-// selama kartu baru masih dalam proses animasi "masuk", supaya swipe
-// berikutnya tidak bisa dimulai sebelum kartu baru benar-benar settle.
-const CARD_POP_IN_MS = 380;
-// Mode burst (← ditahan / ditekan beruntun): animasi dipersingkat.
-// Nilai HARUS sama dengan .preview-card.is-burst di App.css (160ms)
-// dan .preview-card.exit-left.is-burst (150ms).
-const BURST_EXIT_MS = 150;
-const BURST_GATE_MS = 24; // jeda gerbang antar kartu saat burst
-const MAX_PENDING_BURST = 3; // maks. tekanan yang ditampung
-const BURST_MIN_MS = 65; // durasi exit tercepat saat burst panjang
-const BURST_RAMP = 14; // jumlah kartu sampai kecepatan maksimum
-const burstExitMs = (n: number) =>
-  Math.round(
-    BURST_EXIT_MS -
-      (BURST_EXIT_MS - BURST_MIN_MS) * (Math.min(n, BURST_RAMP) / BURST_RAMP),
-  );
-const BURST_WINDOW_MS = 300; // jeda maksimum antar tekanan ← agar dianggap burst
-const BURST_IDLE_MS = 500; // burst berakhir jika tidak ada trigger sepanjang ini
-// Durasi animasi exit normal (single press) — NILAI TIDAK BERUBAH dari
-// sebelumnya (320ms kiri via exit-to-queue, 380ms kanan via
-// exit-to-selected di App.css). Dipusatkan di sini supaya HOLD_EXIT_MS
-// (ditambahkan di step berikutnya) tidak perlu hardcode terpisah.
-const NORMAL_EXIT_MS: Record<"left" | "right", number> = {
-  left: 320,
-  right: 380,
-};
 // Exit animation durations (320ms left / 460ms right) live in App.css as
 // `.preview-card.exit-left` / `.exit-right` — keep them in sync if changed.
 
 // Deterministic "randomness" from a filename, so each sheet in the stack
 // keeps the same tiny tilt/offset across re-renders instead of jittering.
 
-// Durasi animasi undo — HARUS sama dengan App.css (.undo-from-back / .undo-from-tray).
-const UNDO_BACK_MS = 420;
-const UNDO_TRAY_MS = 460;
 
 let toastId = 0;
 
