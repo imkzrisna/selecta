@@ -137,6 +137,11 @@ function backCardStyle(
 }
 
 // Pisahkan "nama.ext" menjadi base + ext (ext termasuk titik, atau "").
+const extOf = (name: string) => {
+  const i = name.lastIndexOf(".");
+  return i > 0 ? name.slice(i + 1).toUpperCase() : "FILE";
+};
+
 function splitName(name: string) {
   const i = name.lastIndexOf(".");
   if (i <= 0) return { base: name, ext: "" };
@@ -2604,12 +2609,14 @@ function App() {
                           {!thumb &&
                             p.kind === "image" &&
                             failedPreviews.current.has(p.path) && (
-                              <span
-                                className="stack-sheet-error"
-                                aria-hidden="true"
-                              >
-                                ⚠
-                              </span>
+                              <div className="stack-sheet-kind mono">
+                                <span className="stack-sheet-kind-label">
+                                  {extOf(p.name)}
+                                </span>
+                                <span className="stack-sheet-kind-name">
+                                  Tanpa preview
+                                </span>
+                              </div>
                             )}
                           {thumb && (
                             <img
@@ -2764,6 +2771,16 @@ function App() {
                               }
                             }}
                           />
+                        ) : current && failedPreviews.current.has(current.path) &&
+                          !frontFull.current.has(current.path) ? (
+                          <div className="nopreview-card mono">
+                            <span className="nopreview-ext">{extOf(current.name)}</span>
+                            <span className="nopreview-title">Preview tidak tersedia</span>
+                            <span className="nopreview-name">{current.name}</span>
+                            <span className="nopreview-hint">
+                              File tetap bisa dipilih dan diekspor
+                            </span>
+                          </div>
                         ) : (
                           <img
                             src={

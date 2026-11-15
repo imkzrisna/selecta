@@ -51,11 +51,19 @@ struct PhotoEntry {
 }
 
 const RAW_HEIC_EXT: &[&str] = &[
-    "heic", "heif", "cr2", "cr3", "nef", "arw", "dng", "orf", "rw2", "raf",
+    "heic", "heif", "heics", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "dng",
+    "orf", "rw2", "rwl", "raf", "pef", "srw", "3fr", "erf", "mrw", "kdc", "dcr", "raw",
+    "gpr", "x3f",
 ];
-const STANDARD_EXT: &[&str] = &["jpg", "jpeg", "png", "tiff", "tif", "bmp"];
+const STANDARD_EXT: &[&str] = &[
+    "jpg", "jpeg", "jfif", "png", "tiff", "tif", "bmp", "webp", "gif", "jp2", "psd", "ico",
+    "tga",
+];
 const PDF_EXT: &[&str] = &["pdf"];
-const VIDEO_EXT: &[&str] = &["mp4", "mov", "m4v", "avi", "mkv", "webm"];
+const VIDEO_EXT: &[&str] = &[
+    "mp4", "mov", "m4v", "avi", "mkv", "webm", "mpg", "mpeg", "3gp", "wmv", "flv", "mts",
+    "m2ts", "ogv",
+];
 
 fn kind_for_ext(ext: &str) -> Option<&'static str> {
     if STANDARD_EXT.contains(&ext) || RAW_HEIC_EXT.contains(&ext) {

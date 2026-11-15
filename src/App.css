@@ -3560,3 +3560,43 @@ body {
   animation-duration: var(--burst-ms, 150ms), var(--burst-fade, 50ms);
   animation-delay: 0s, var(--burst-fade-delay, 100ms);
 }
+
+/* ---------- File tanpa preview ---------- */
+.nopreview-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: min(420px, 70vw);
+  aspect-ratio: 4 / 3;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: 6px;
+}
+.nopreview-ext {
+  padding: 6px 16px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+.nopreview-title {
+  font-size: 12px;
+  color: var(--ink);
+}
+.nopreview-name {
+  max-width: 100%;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nopreview-hint {
+  font-family: var(--font-sans);
+  font-size: 10px;
+}
