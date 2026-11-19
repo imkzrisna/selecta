@@ -3617,3 +3617,18 @@ body {
 .preview-photo-inner.is-zoomed > * {
   pointer-events: none;
 }
+
+/* ---------- Exit kiri (skip) non-burst: ease-out + fade bertahap ---------- */
+@keyframes exit-to-queue-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.preview-card.exit-left:not(.is-burst) {
+  animation:
+    exit-to-queue 380ms cubic-bezier(0.5, 0, 0.25, 1) forwards,
+    exit-to-queue-fade 130ms linear 250ms forwards;
+}
