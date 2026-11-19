@@ -14,6 +14,7 @@ export function useCardPinchZoom(enabled: boolean, resetKey?: string) {
   const [zoomed, setZoomed] = useState(false);
   const viewRef = useRef<View>({ ...IDENTITY });
   const rafRef = useRef<number | null>(null);
+  const idleRef = useRef<number | null>(null);
 
   const paint = useCallback(() => {
     rafRef.current = null;
@@ -29,6 +30,13 @@ export function useCardPinchZoom(enabled: boolean, resetKey?: string) {
     target.style.transformOrigin = "50% 50%";
     target.style.willChange = "transform";
     target.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`;
+    // will-change permanen membuat WebKit menahan raster di skala awal
+    // (buram). Lepas setelah gesture berhenti agar dirender ulang tajam.
+    if (idleRef.current !== null) window.clearTimeout(idleRef.current);
+    idleRef.current = window.setTimeout(() => {
+      idleRef.current = null;
+      target.style.willChange = "auto";
+    }, 160);
   }, [el]);
 
   const apply = useCallback(
@@ -95,6 +103,7 @@ export function useCardPinchZoom(enabled: boolean, resetKey?: string) {
   useEffect(
     () => () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (idleRef.current !== null) window.clearTimeout(idleRef.current);
     },
     [],
   );
