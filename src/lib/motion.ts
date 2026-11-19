@@ -9,7 +9,7 @@ export const CARD_POP_IN_MS = 380;
 // exit-to-selected di App.css). Dipusatkan di sini supaya HOLD_EXIT_MS
 // (ditambahkan di step berikutnya) tidak perlu hardcode terpisah.
 export const NORMAL_EXIT_MS: Record<"left" | "right", number> = {
-  left: 380,
+  left: 460,
   right: 380,
 };
 
