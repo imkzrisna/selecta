@@ -3673,3 +3673,11 @@ body {
 .preview-box.is-burst .stack-sheet {
   transition-duration: var(--burst-rise, 0.14s);
 }
+
+/* Burst: kartu naik ease-out landai, tetap terlihat walau durasi pendek */
+.preview-card.is-burst:not(.exit-left):not(.exit-right):not([class*="undo-"]):not(.is-ghost) {
+  animation-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.preview-box.is-burst .stack-sheet {
+  transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
