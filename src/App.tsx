@@ -1090,6 +1090,8 @@ function App() {
       const photo = visibleQueue[0];
       if (!card || !box || !photo) return false;
 
+      if (fast) box.style.setProperty("--burst-rise", `${Math.max(70, Math.round(ms * 1.1))}ms`);
+      else box.style.removeProperty("--burst-rise");
       flyGhost(card, box, {
         dir,
         ms,

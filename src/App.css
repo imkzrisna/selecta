@@ -3665,3 +3665,11 @@ body {
 .preview-photo-inner.is-pixel > .preview-img {
   image-rendering: pixelated;
 }
+
+/* Burst: durasi kartu naik mengikuti kecepatan exit (diisi App.tsx) */
+.preview-card.is-burst:not(.exit-left):not(.exit-right):not([class*="undo-"]):not(.is-ghost) {
+  animation-duration: var(--burst-rise, 140ms);
+}
+.preview-box.is-burst .stack-sheet {
+  transition-duration: var(--burst-rise, 0.14s);
+}
