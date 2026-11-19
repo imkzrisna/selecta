@@ -38,6 +38,9 @@ export function flyGhost(
       `${tr.top + tr.height / 2 - cy - 0.3 * card.offsetHeight * (1 - S)}px`,
     );
   }
+  // Batasi ghost yang masih terbang agar tidak menumpuk saat burst panjang.
+  const live = box.querySelectorAll(":scope > .is-ghost");
+  for (let i = 0; i < live.length - 3; i++) live[i].remove();
   box.appendChild(ghost);
   // cloneNode tidak menyalin isi <canvas> (PDF) maupun posisi scroll.
   const src = card.querySelectorAll("canvas");
