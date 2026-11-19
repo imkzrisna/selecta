@@ -751,6 +751,12 @@ fn get_full_image(path: String, app: AppHandle) -> Result<String, String> {
     Ok(out.to_string_lossy().to_string())
 }
 
+// Laporan ukuran cache (read-only), dipakai tombol "Bersihkan cache".
+#[tauri::command]
+fn get_cache_size(app: AppHandle) -> Result<cache::CacheSizeReport, String> {
+    cache::size_report(&app)
+}
+
 // 6. Sesi: simpan / baca / hapus pilihan yang belum diekspor.
 fn session_file(app: &AppHandle, key: &str) -> Result<PathBuf, String> {
     let dir = cache::cache_dir(app)?.join("sessions");
@@ -798,7 +804,8 @@ pub fn run() {
             save_session,
             load_session,
             clear_session,
-            get_full_image
+            get_full_image,
+            get_cache_size
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

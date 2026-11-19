@@ -80,3 +80,33 @@ pub fn thumb_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
         .join("thumbs")
         .join(format!("{}.jpg", hash_path(path))))
 }
+
+fn dir_size(p: &std::path::Path) -> u64 {
+    walkdir::WalkDir::new(p)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter_map(|e| e.metadata().ok())
+        .filter(|m| m.is_file())
+        .map(|m| m.len())
+        .sum()
+}
+
+#[derive(Serialize)]
+pub struct CacheSizeReport {
+    pub total: u64,
+    pub thumbs: u64,
+    pub full: u64,
+    pub sessions: u64,
+    pub export_logs: u64,
+}
+
+pub fn size_report(app: &AppHandle) -> Result<CacheSizeReport, String> {
+    let root = cache_dir(app)?;
+    Ok(CacheSizeReport {
+        total: dir_size(&root),
+        thumbs: dir_size(&root.join("thumbs")),
+        full: dir_size(&root.join("full")),
+        sessions: dir_size(&root.join("sessions")),
+        export_logs: dir_size(&root.join("export-logs")),
+    })
+}
