@@ -3608,3 +3608,12 @@ body {
 .review-screen .scroll-hint-tall {
   bottom: 40px;
 }
+
+/* ---------- Zoom inline (pinch trackpad) di kartu sorting ---------- */
+.preview-photo-inner.is-zoomed {
+  overflow: hidden;
+  cursor: zoom-out;
+}
+.preview-photo-inner.is-zoomed > * {
+  pointer-events: none;
+}
