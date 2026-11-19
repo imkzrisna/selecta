@@ -12,6 +12,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
 import { CARD_POP_IN_MS, NORMAL_EXIT_MS, BURST_WINDOW_MS, BURST_IDLE_MS, BURST_GATE_MS, MAX_PENDING_BURST, UNDO_BACK_MS, UNDO_TRAY_MS, burstExitMs } from "./lib/motion";
 import { flyGhost } from "./lib/ghost";
+import { useCardPinchZoom } from "./lib/useCardPinchZoom";
 import ShortcutsModal from "./components/ui/ShortcutsModal";
 import FilterMenu from "./components/ui/FilterMenu";
 import ExportScreen from "./components/screens/ExportScreen";
@@ -1732,6 +1733,19 @@ function App() {
     </div>
   );
 
+  const pinchCur = visibleQueue[0];
+  const pinchRatio =
+    (pinchCur && stackAspectRatios[pinchCur.path]) || currentAspectRatio;
+  const pinch = useCardPinchZoom(
+    stage === "sorting" &&
+      pinchCur?.kind === "image" &&
+      !longKindOf(pinchRatio) &&
+      exitDir === null &&
+      !zoomPhoto &&
+      !fullViewPhoto,
+    pinchCur?.path,
+  );
+
   if (stage === "setup") {
     const ready = !!sourceFolder;
     return (
@@ -2584,8 +2598,10 @@ function App() {
                       }}
                     >
                       <div
+                        ref={pinch.setEl}
                         className={
                           "preview-photo-inner" +
+                          (pinch.zoomed ? " is-zoomed" : "") +
                           (longKind ? ` is-long-${longKind}` : "") +
                           (current?.kind === "pdf" || current?.kind === "video"
                             ? " is-clickable"
@@ -2611,6 +2627,10 @@ function App() {
                           }
                         }}
                         onClick={() => {
+                          if (pinch.zoomed) {
+                            pinch.reset();
+                            return;
+                          }
                           if (
                             current &&
                             (current.kind === "pdf" || current.kind === "video")
