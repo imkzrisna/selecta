@@ -13,6 +13,7 @@ import "./App.css";
 import { CARD_POP_IN_MS, NORMAL_EXIT_MS, BURST_WINDOW_MS, BURST_IDLE_MS, BURST_GATE_MS, MAX_PENDING_BURST, UNDO_BACK_MS, UNDO_TRAY_MS, burstExitMs } from "./lib/motion";
 import { flyGhost } from "./lib/ghost";
 import { useCardPinchZoom } from "./lib/useCardPinchZoom";
+import { useFitUpscale } from "./lib/useFitUpscale";
 import ShortcutsModal from "./components/ui/ShortcutsModal";
 import FilterMenu from "./components/ui/FilterMenu";
 import ExportScreen from "./components/screens/ExportScreen";
@@ -285,6 +286,7 @@ function App() {
   // A photo from the dropdown currently shown large in the lightbox.
   const [viewingPhoto, setViewingPhoto] = useState<PhotoEntry | null>(null);
   const [fullViewPhoto, setFullViewPhoto] = useState<PhotoEntry | null>(null);
+  const [frontNat, setFrontNat] = useState<{ path: string; w: number; h: number } | null>(null);
   const [fullViewAspectRatio, setFullViewAspectRatio] = useState<number | null>(
     null,
   );
@@ -1746,6 +1748,14 @@ function App() {
     pinchCur?.path,
   );
 
+  const upscale = useFitUpscale(
+    frontNat && pinchCur && frontNat.path === pinchCur.path
+      ? { w: frontNat.w, h: frontNat.h }
+      : null,
+    pinchCur?.kind === "image" && !longKindOf(pinchRatio) ? 3 : 1,
+    stage,
+  );
+
   if (stage === "setup") {
     const ready = !!sourceFolder;
     return (
@@ -2602,6 +2612,7 @@ function App() {
                         className={
                           "preview-photo-inner" +
                           (pinch.zoomed ? " is-zoomed" : "") +
+                          (upscale ? " is-upscaled" : "") +
                           (longKind ? ` is-long-${longKind}` : "") +
                           (current?.kind === "pdf" || current?.kind === "video"
                             ? " is-clickable"
@@ -2614,7 +2625,10 @@ function App() {
                         }
                         style={
                           shapedRatio
-                            ? { aspectRatio: `${shapedRatio}` }
+                            ? {
+                                aspectRatio: `${shapedRatio}`,
+                                ...(upscale ? { width: upscale.w, height: upscale.h } : {}),
+                              }
                             : undefined
                         }
                         onScroll={(e) => {
@@ -2706,6 +2720,7 @@ function App() {
                             onLoad={(e) => {
                               const img = e.currentTarget;
                               if (img.naturalWidth && img.naturalHeight) {
+                                if (current) setFrontNat({ path: current.path, w: img.naturalWidth, h: img.naturalHeight });
                                 const newRatio =
                                   img.naturalWidth / img.naturalHeight;
                                 setCurrentAspectRatio((prev) => {

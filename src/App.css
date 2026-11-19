@@ -3651,3 +3651,12 @@ body {
     exit-to-queue-soft var(--exit-left-ms) cubic-bezier(0.4, 0, 0.2, 1) forwards,
     exit-to-queue-fade 180ms linear calc(var(--exit-left-ms) - 180ms) forwards;
 }
+
+/* ---------- Foto kecil dibesarkan mengisi kartu (ukuran lewat inline style) ---------- */
+.preview-photo-inner.is-upscaled {
+  transition: none;
+}
+.preview-photo-inner.is-upscaled > .preview-img {
+  width: 100%;
+  height: 100%;
+}
