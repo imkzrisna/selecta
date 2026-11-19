@@ -7,47 +7,46 @@ type View = { scale: number; tx: number; ty: number };
 const IDENTITY: View = { scale: 1, tx: 0, ty: 0 };
 
 // Pinch trackpad (wheel + ctrlKey) untuk zoom inline di kartu sorting.
-// Transform dipasang di anak pertama container, bukan di kartu, karena
-// transform kartu dipakai animasi swipe/exit/undo.
+// Zoom lewat width/height (bukan transform: scale) supaya gambar dirender
+// ulang tajam dari file asli, bukan bitmap yang direntangkan.
 export function useCardPinchZoom(enabled: boolean, resetKey?: string) {
   const [el, setEl] = useState<HTMLElement | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const viewRef = useRef<View>({ ...IDENTITY });
+  const baseRef = useRef({ w: 0, h: 0 });
   const rafRef = useRef<number | null>(null);
-  const idleRef = useRef<number | null>(null);
 
   const paint = useCallback(() => {
     rafRef.current = null;
-    const target = el?.firstElementChild as HTMLElement | null;
-    if (!target) return;
+    const t = el?.firstElementChild as HTMLElement | null;
+    if (!t) return;
     const { scale, tx, ty } = viewRef.current;
     if (scale === 1) {
-      target.style.transform = "";
-      target.style.transformOrigin = "";
-      target.style.willChange = "";
+      t.style.width = "";
+      t.style.height = "";
+      t.style.maxWidth = "";
+      t.style.maxHeight = "";
+      t.style.flexShrink = "";
+      t.style.transform = "";
       return;
     }
-    target.style.transformOrigin = "50% 50%";
-    target.style.willChange = "transform";
-    target.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`;
-    // will-change permanen membuat WebKit menahan raster di skala awal
-    // (buram). Lepas setelah gesture berhenti agar dirender ulang tajam.
-    if (idleRef.current !== null) window.clearTimeout(idleRef.current);
-    idleRef.current = window.setTimeout(() => {
-      idleRef.current = null;
-      target.style.willChange = "auto";
-    }, 160);
+    const b = baseRef.current;
+    t.style.maxWidth = "none";
+    t.style.maxHeight = "none";
+    t.style.flexShrink = "0";
+    t.style.width = `${b.w * scale}px`;
+    t.style.height = `${b.h * scale}px`;
+    t.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
   }, [el]);
 
   const apply = useCallback(
     (v: View) => {
       if (!el) return;
-      let next = v;
-      if (v.scale <= MIN_SCALE) {
-        next = { ...IDENTITY };
-      } else {
-        const maxX = (el.clientWidth * v.scale - el.clientWidth) / 2;
-        const maxY = (el.clientHeight * v.scale - el.clientHeight) / 2;
+      let next: View = { ...IDENTITY };
+      if (v.scale > MIN_SCALE) {
+        const b = baseRef.current;
+        const maxX = Math.max(0, (b.w * v.scale - el.clientWidth) / 2);
+        const maxY = Math.max(0, (b.h * v.scale - el.clientHeight) / 2);
         next = {
           scale: v.scale,
           tx: Math.min(maxX, Math.max(-maxX, v.tx)),
@@ -63,7 +62,6 @@ export function useCardPinchZoom(enabled: boolean, resetKey?: string) {
 
   const reset = useCallback(() => apply({ ...IDENTITY }), [apply]);
 
-  // Reset setiap ganti foto / hook dimatikan.
   useEffect(() => {
     viewRef.current = { ...IDENTITY };
     setZoomed(false);
@@ -76,8 +74,12 @@ export function useCardPinchZoom(enabled: boolean, resetKey?: string) {
       const v = viewRef.current;
       if (e.ctrlKey) {
         e.preventDefault();
+        const t = el.firstElementChild as HTMLElement | null;
+        if (!t) return;
+        if (v.scale === 1) {
+          baseRef.current = { w: t.offsetWidth, h: t.offsetHeight };
+        }
         const r = el.getBoundingClientRect();
-        // Posisi kursor relatif ke pusat container (origin transform = tengah).
         const px = e.clientX - (r.left + r.width / 2);
         const py = e.clientY - (r.top + r.height / 2);
         const next = Math.min(
@@ -103,7 +105,6 @@ export function useCardPinchZoom(enabled: boolean, resetKey?: string) {
   useEffect(
     () => () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      if (idleRef.current !== null) window.clearTimeout(idleRef.current);
     },
     [],
   );
