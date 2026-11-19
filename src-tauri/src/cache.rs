@@ -110,3 +110,81 @@ pub fn size_report(app: &AppHandle) -> Result<CacheSizeReport, String> {
         export_logs: dir_size(&root.join("export-logs")),
     })
 }
+
+#[derive(Serialize)]
+pub struct TrimReport {
+    pub removed_files: u32,
+    pub freed: u64,
+}
+
+/// Hapus thumbnail paling lama tidak dipakai sampai total <= max_bytes.
+/// Hanya menyentuh file di dalam thumbs/. Juga membuang entri index yang
+/// thumbnail-nya sudah tidak ada, dan file sementara sips yang sudah lama.
+pub fn trim_thumbs(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, String> {
+    let thumbs = cache_dir(app)?.join("thumbs");
+    let mut files: Vec<(PathBuf, u64, std::time::SystemTime)> = Vec::new();
+    for e in fs::read_dir(&thumbs).map_err(|e| e.to_string())?.flatten() {
+        let p = e.path();
+        if p.extension().and_then(|x| x.to_str()) != Some("jpg") {
+            continue;
+        }
+        if let Ok(m) = e.metadata() {
+            if !m.is_file() {
+                continue;
+            }
+            let t = match (m.accessed().ok(), m.modified().ok()) {
+                (Some(a), Some(b)) => a.max(b),
+                (Some(a), None) => a,
+                (None, Some(b)) => b,
+                _ => std::time::UNIX_EPOCH,
+            };
+            files.push((p, m.len(), t));
+        }
+    }
+
+    let mut total: u64 = files.iter().map(|f| f.1).sum();
+    eprintln!("[trim] files={} total={}MB limit={}MB", files.len(), total / 1048576, max_bytes / 1048576);
+    eprintln!("[trim] files={} total={}MB limit={}MB", files.len(), total / 1048576, max_bytes / 1048576);
+    let mut report = TrimReport { removed_files: 0, freed: 0 };
+
+    if total > max_bytes {
+        files.sort_by_key(|f| f.2); // paling lama dulu
+        for (p, size, _) in files {
+            if total <= max_bytes {
+                break;
+            }
+            if p.starts_with(&thumbs) && fs::remove_file(&p).is_ok() {
+                total = total.saturating_sub(size);
+                report.removed_files += 1;
+                report.freed += size;
+            }
+        }
+        // Buang entri index yang thumbnail-nya sudah hilang.
+        let mut index = load_index(app);
+        let before = index.len();
+        index.retain(|k, _| thumb_path(app, k).map(|t| t.exists()).unwrap_or(false));
+        if index.len() != before {
+            let _ = save_index(app, &index);
+        }
+    }
+
+    eprintln!("[trim] removed={} freed={}MB", report.removed_files, report.freed / 1048576);
+    eprintln!("[trim] removed={} freed={}MB", report.removed_files, report.freed / 1048576);
+    // File sementara sips (>1 jam) di temp dir.
+    let tmp = std::env::temp_dir().join("selecta-preview");
+    if let Ok(rd) = fs::read_dir(&tmp) {
+        for e in rd.flatten() {
+            let old = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.elapsed().ok())
+                .map(|d| d.as_secs() > 3600)
+                .unwrap_or(false);
+            if old {
+                let _ = fs::remove_file(e.path());
+            }
+        }
+    }
+    Ok(report)
+}

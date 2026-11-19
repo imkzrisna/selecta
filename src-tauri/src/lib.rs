@@ -751,6 +751,14 @@ fn get_full_image(path: String, app: AppHandle) -> Result<String, String> {
     Ok(out.to_string_lossy().to_string())
 }
 
+// Pangkas cache thumbnail ke batas ukuran (LRU). Berjalan di thread terpisah.
+#[tauri::command]
+async fn trim_cache(max_bytes: u64, app: AppHandle) -> Result<cache::TrimReport, String> {
+    tauri::async_runtime::spawn_blocking(move || cache::trim_thumbs(&app, max_bytes))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 // Laporan ukuran cache (read-only), dipakai tombol "Bersihkan cache".
 #[tauri::command]
 fn get_cache_size(app: AppHandle) -> Result<cache::CacheSizeReport, String> {
@@ -805,7 +813,8 @@ pub fn run() {
             load_session,
             clear_session,
             get_full_image,
-            get_cache_size
+            get_cache_size,
+            trim_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
