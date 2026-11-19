@@ -2613,6 +2613,7 @@ function App() {
                           "preview-photo-inner" +
                           (pinch.zoomed ? " is-zoomed" : "") +
                           (upscale ? " is-upscaled" : "") +
+                          (upscale && upscale.fit >= 4 ? " is-pixel" : "") +
                           (longKind ? ` is-long-${longKind}` : "") +
                           (current?.kind === "pdf" || current?.kind === "video"
                             ? " is-clickable"

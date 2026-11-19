@@ -3660,3 +3660,8 @@ body {
   width: 100%;
   height: 100%;
 }
+
+/* Foto sangat kecil: piksel asli ditampilkan apa adanya (tanpa blur). */
+.preview-photo-inner.is-pixel > .preview-img {
+  image-rendering: pixelated;
+}
