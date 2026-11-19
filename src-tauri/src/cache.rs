@@ -120,7 +120,20 @@ pub struct TrimReport {
 /// Hapus thumbnail paling lama tidak dipakai sampai total <= max_bytes.
 /// Hanya menyentuh file di dalam thumbs/. Juga membuang entri index yang
 /// thumbnail-nya sudah tidak ada, dan file sementara sips yang sudah lama.
+static TRIMMING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Hanya satu trim berjalan sekaligus; panggilan lain yang bersamaan dilewati.
 pub fn trim_thumbs(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, String> {
+    use std::sync::atomic::Ordering;
+    if TRIMMING.swap(true, Ordering::SeqCst) {
+        return Ok(TrimReport { removed_files: 0, freed: 0 });
+    }
+    let r = trim_thumbs_inner(app, max_bytes);
+    TRIMMING.store(false, Ordering::SeqCst);
+    r
+}
+
+fn trim_thumbs_inner(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, String> {
     let thumbs = cache_dir(app)?.join("thumbs");
     let mut files: Vec<(PathBuf, u64, std::time::SystemTime)> = Vec::new();
     for e in fs::read_dir(&thumbs).map_err(|e| e.to_string())?.flatten() {
@@ -143,8 +156,6 @@ pub fn trim_thumbs(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, String
     }
 
     let mut total: u64 = files.iter().map(|f| f.1).sum();
-    eprintln!("[trim] files={} total={}MB limit={}MB", files.len(), total / 1048576, max_bytes / 1048576);
-    eprintln!("[trim] files={} total={}MB limit={}MB", files.len(), total / 1048576, max_bytes / 1048576);
     let mut report = TrimReport { removed_files: 0, freed: 0 };
 
     if total > max_bytes {
@@ -168,8 +179,6 @@ pub fn trim_thumbs(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, String
         }
     }
 
-    eprintln!("[trim] removed={} freed={}MB", report.removed_files, report.freed / 1048576);
-    eprintln!("[trim] removed={} freed={}MB", report.removed_files, report.freed / 1048576);
     // File sementara sips (>1 jam) di temp dir.
     let tmp = std::env::temp_dir().join("selecta-preview");
     if let Ok(rd) = fs::read_dir(&tmp) {
