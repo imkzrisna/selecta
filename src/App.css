@@ -3681,3 +3681,27 @@ body {
 .preview-box.is-burst .stack-sheet {
   transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
 }
+
+/* ---------- Tombol bersihkan cache (layar setup) ---------- */
+.cache-clear {
+  margin-top: 18px;
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.cache-clear:hover:not(:disabled) {
+  color: var(--text, inherit);
+  background: var(--surface-sunken);
+}
+.cache-clear.is-confirm {
+  color: #b3261e;
+}
+.cache-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

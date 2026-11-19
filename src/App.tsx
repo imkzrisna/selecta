@@ -1759,6 +1759,38 @@ function App() {
     stage,
   );
 
+  const [cacheBytes, setCacheBytes] = useState<number | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const refreshCacheSize = useCallback(() => {
+    invoke<{ total: number }>("get_cache_size")
+      .then((r) => setCacheBytes(r.total))
+      .catch(() => setCacheBytes(null));
+  }, []);
+  useEffect(() => {
+    if (stage === "setup") refreshCacheSize();
+  }, [stage, refreshCacheSize]);
+  useEffect(() => {
+    if (!confirmClear) return;
+    const t = window.setTimeout(() => setConfirmClear(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [confirmClear]);
+  const clearCache = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    setConfirmClear(false);
+    setClearing(true);
+    try {
+      await invoke("trim_cache", { maxBytes: 0 });
+    } catch {
+      /* abaikan */
+    }
+    setClearing(false);
+    refreshCacheSize();
+  };
+
   // Pangkas cache thumbnail saat app dibuka (batas 500 MB, LRU).
   useEffect(() => {
     invoke("trim_cache", { maxBytes: 500 * 1024 * 1024 }).catch(() => {});
@@ -1815,6 +1847,27 @@ function App() {
             <kbd>F</kbd> layar penuh
           </span>
         </div>
+
+        <button
+          type="button"
+          className={`cache-clear mono${confirmClear ? " is-confirm" : ""}`}
+          disabled={clearing || !cacheBytes}
+          onClick={clearCache}
+        >
+          {clearing
+            ? "Membersihkan…"
+            : confirmClear
+              ? "Yakin? Klik lagi untuk menghapus"
+              : `Bersihkan cache${
+                  cacheBytes !== null
+                    ? ` (${
+                        cacheBytes >= 1073741824
+                          ? (cacheBytes / 1073741824).toFixed(1) + " GB"
+                          : Math.round(cacheBytes / 1048576) + " MB"
+                      })`
+                    : ""
+                }`}
+        </button>
       </div>
     );
   }
