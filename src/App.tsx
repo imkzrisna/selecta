@@ -1793,8 +1793,11 @@ function App() {
 
   // Pangkas cache thumbnail saat app dibuka (batas 500 MB, LRU).
   useEffect(() => {
-    invoke("trim_cache", { maxBytes: 500 * 1024 * 1024 }).catch(() => {});
-  }, []);
+    if (stage !== "setup" && stage !== "done") return;
+    invoke("trim_cache", { maxBytes: 500 * 1024 * 1024 })
+      .then(() => refreshCacheSize())
+      .catch(() => {});
+  }, [stage, refreshCacheSize]);
 
   if (stage === "setup") {
     const ready = !!sourceFolder;
