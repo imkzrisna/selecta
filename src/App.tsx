@@ -18,6 +18,8 @@ import ShortcutsModal from "./components/ui/ShortcutsModal";
 import FilterMenu from "./components/ui/FilterMenu";
 import ExportScreen from "./components/screens/ExportScreen";
 import SetupScreen from "./components/screens/SetupScreen";
+import PreparingScreen from "./components/screens/PreparingScreen";
+import DoneScreen from "./components/screens/DoneScreen";
 import { useCacheManager } from "./hooks/useCacheManager";
 import { TrayGlyph } from "./components/ui/Glyphs";
 import { RollDial, ProgressRing } from "./components/ui/Dials";
@@ -1779,26 +1781,12 @@ function App() {
   }
 
   if (stage === "preparing") {
-    const total = prepareProgress.total;
-    const pct = total ? Math.round((prepareProgress.done / total) * 100) : 0;
     return (
-      <div className="container done-screen">
-        {ToastStack}
-        <span className="brand-mark">Selecta</span>
-        <h1>Menyiapkan foto…</h1>
-        <div className="done-ring">
-          <RollDial progress={pct} size={188} />
-          <div className="done-ring-label">
-            <span className="done-ring-pct mono">{pct}%</span>
-            <span className="done-ring-sub">siap</span>
-          </div>
-        </div>
-        <p className="done-tally">
-          <span className="stat-value">{prepareProgress.done}</span> dari{" "}
-          {total} preview siap
-        </p>
-        <p className="done-path mono">Mohon tunggu sebentar…</p>
-      </div>
+      <PreparingScreen
+        toasts={ToastStack}
+        done={prepareProgress.done}
+        total={prepareProgress.total}
+      />
     );
   }
 
@@ -2150,58 +2138,18 @@ function App() {
   }
 
   if (stage === "done") {
-    const rate = totalLoaded
-      ? Math.round((selectedCount / totalLoaded) * 100)
-      : 0;
     return (
-      <div className="container done-screen">
-        {ToastStack}
-        <span className="brand-mark">Selecta</span>
-        <h1>Selesai</h1>
-        <div className="done-ring">
-          <RollDial progress={rate} size={188} />
-          <div className="done-ring-label">
-            <span className="done-ring-pct mono">{rate}%</span>
-            <span className="done-ring-sub">disimpan</span>
-          </div>
-        </div>
-        <p className="done-tally">
-          <span className="stat-value">{selectedCount}</span> dari {totalLoaded}{" "}
-          foto disimpan
-        </p>
-        <p className="done-path mono">{exportOutput || destFolder}</p>
-        <button
-          className="ghost-btn"
-          disabled={isProcessing}
-          onClick={async () => {
-            const yes = await ask(
-              "Semua file dari ekspor terakhir akan dikembalikan ke folder sumber. Lanjutkan?",
-              { title: "Kembalikan ekspor", kind: "warning", okLabel: "Kembalikan", cancelLabel: "Batal" },
-            );
-            if (!yes) return;
-            setIsProcessing(true);
-            try {
-              const r = await invoke<{ restored: number; failed: string[] }>("undo_last_export");
-              if (r.failed.length > 0) console.warn("Kembalikan gagal sebagian:", r.failed);
-              pushToast(
-                r.failed.length > 0
-                  ? `${r.restored} dikembalikan, ${r.failed.length} gagal.`
-                  : `${r.restored} file dikembalikan.`,
-              );
-              if (r.failed.length === 0) setStage("setup");
-            } catch (e) {
-              pushToast(String(e));
-            } finally {
-              setIsProcessing(false);
-            }
-          }}
-        >
-          Kembalikan ekspor
-        </button>
-        <button className="primary" onClick={resetApp}>
-          Mulai Roll Baru
-        </button>
-      </div>
+      <DoneScreen
+        toasts={ToastStack}
+        selectedCount={selectedCount}
+        totalLoaded={totalLoaded}
+        outputPath={exportOutput || destFolder}
+        isProcessing={isProcessing}
+        setIsProcessing={setIsProcessing}
+        pushToast={pushToast}
+        setStage={setStage}
+        onReset={resetApp}
+      />
     );
   }
 
