@@ -17,7 +17,9 @@ import { useFitUpscale } from "./lib/useFitUpscale";
 import ShortcutsModal from "./components/ui/ShortcutsModal";
 import FilterMenu from "./components/ui/FilterMenu";
 import ExportScreen from "./components/screens/ExportScreen";
-import { FolderGlyph, TrayGlyph } from "./components/ui/Glyphs";
+import SetupScreen from "./components/screens/SetupScreen";
+import { useCacheManager } from "./hooks/useCacheManager";
+import { TrayGlyph } from "./components/ui/Glyphs";
 import { RollDial, ProgressRing } from "./components/ui/Dials";
 import { DelayedSpinner } from "./components/ui/DelayedSpinner";
 import type {
@@ -1759,119 +1761,20 @@ function App() {
     stage,
   );
 
-  const [cacheBytes, setCacheBytes] = useState<number | null>(null);
-  const [confirmClear, setConfirmClear] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const refreshCacheSize = useCallback(() => {
-    invoke<{ total: number }>("get_cache_size")
-      .then((r) => setCacheBytes(r.total))
-      .catch(() => setCacheBytes(null));
-  }, []);
-  useEffect(() => {
-    if (stage === "setup") refreshCacheSize();
-  }, [stage, refreshCacheSize]);
-  useEffect(() => {
-    if (!confirmClear) return;
-    const t = window.setTimeout(() => setConfirmClear(false), 4000);
-    return () => window.clearTimeout(t);
-  }, [confirmClear]);
-  const clearCache = async () => {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      return;
-    }
-    setConfirmClear(false);
-    setClearing(true);
-    try {
-      await invoke("trim_cache", { maxBytes: 0 });
-    } catch {
-      /* abaikan */
-    }
-    setClearing(false);
-    refreshCacheSize();
-  };
-
-  // Pangkas cache thumbnail saat app dibuka (batas 500 MB, LRU).
-  useEffect(() => {
-    if (stage !== "setup" && stage !== "done") return;
-    invoke("trim_cache", { maxBytes: 500 * 1024 * 1024 })
-      .then(() => refreshCacheSize())
-      .catch(() => {});
-  }, [stage, refreshCacheSize]);
+  const cache = useCacheManager(stage);
 
   if (stage === "setup") {
-    const ready = !!sourceFolder;
     return (
-      <div className="container setup-screen">
-        {ToastStack}
-        <div className="brand">
-          <span className="brand-mark">Selecta</span>
-          <h1>Aplikasi yang memudahkan untuk memanage foto seabrek</h1>
-        </div>
-
-        <div className="setup-card">
-          <button
-            type="button"
-            className={`setup-row${sourceFolder ? " is-filled" : ""}`}
-            onClick={pickSourceFolder}
-          >
-            <span className="setup-row-label">
-              <span className="setup-icon" aria-hidden="true">
-                <FolderGlyph />
-              </span>
-              <span className="setup-text">
-                <span className="setup-title">Folder sumber</span>
-                <span className="path-label">
-                  {sourceFolder || "klik untuk memilih…"}
-                </span>
-              </span>
-            </span>
-            <span className="setup-chevron" aria-hidden="true">
-              {sourceFolder ? "✓" : "›"}
-            </span>
-          </button>
-        </div>
-
-        <button className="primary" disabled={!ready} onClick={startSorting}>
-          {ready ? "Mulai Sortir" : "Pilih folder sumber dulu"}
-        </button>
-
-        <div className="setup-keys">
-          <span>
-            <kbd>←</kbd> lewati
-          </span>
-          <span>
-            <kbd>→</kbd> pilih
-          </span>
-          <span>
-            <kbd>⌘Z</kbd> batal
-          </span>
-          <span>
-            <kbd>F</kbd> layar penuh
-          </span>
-        </div>
-
-        <button
-          type="button"
-          className={`cache-clear mono${confirmClear ? " is-confirm" : ""}`}
-          disabled={clearing || !cacheBytes}
-          onClick={clearCache}
-        >
-          {clearing
-            ? "Membersihkan…"
-            : confirmClear
-              ? "Yakin? Klik lagi untuk menghapus"
-              : `Bersihkan cache${
-                  cacheBytes !== null
-                    ? ` (${
-                        cacheBytes >= 1073741824
-                          ? (cacheBytes / 1073741824).toFixed(1) + " GB"
-                          : Math.round(cacheBytes / 1048576) + " MB"
-                      })`
-                    : ""
-                }`}
-        </button>
-      </div>
+      <SetupScreen
+        toasts={ToastStack}
+        sourceFolder={sourceFolder}
+        onPickSource={pickSourceFolder}
+        onStart={startSorting}
+        cacheBytes={cache.cacheBytes}
+        confirmClear={cache.confirmClear}
+        clearing={cache.clearing}
+        onClearCache={cache.clearCache}
+      />
     );
   }
 
