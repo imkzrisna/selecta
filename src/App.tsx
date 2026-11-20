@@ -22,7 +22,7 @@ import PreparingScreen from "./components/screens/PreparingScreen";
 import DoneScreen from "./components/screens/DoneScreen";
 import { useCacheManager } from "./hooks/useCacheManager";
 import { TrayGlyph } from "./components/ui/Glyphs";
-import { RollDial, ProgressRing } from "./components/ui/Dials";
+import { ProgressRing } from "./components/ui/Dials";
 import { DelayedSpinner } from "./components/ui/DelayedSpinner";
 import type {
   PhotoKind,
