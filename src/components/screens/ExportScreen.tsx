@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import type { MutableRefObject, ReactNode } from "react";
+import BackThumb from "../media/BackThumb";
 import { FolderGlyph } from "../ui/Glyphs";
-import { splitName } from "../../lib/utils";
+import { splitName, seededOffset, backCardStyle, shapeRatio } from "../../lib/utils";
 import type { PhotoEntry } from "../../lib/types";
 
 type Props = {
@@ -42,6 +44,70 @@ export default function ExportScreen({
   onExport,
 }: Props) {
   const canGo = !!destFolder && count > 0 && !isProcessing;
+
+  const [idx0, setIdx] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  const [cardEl, setCardEl] = useState<HTMLDivElement | null>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  const n = photos.length;
+  const idx = Math.min(idx0, Math.max(0, n - 1));
+  const cur = photos[idx];
+
+  useEffect(() => {
+    if (!cardEl) return;
+    const upd = () =>
+      setBox((prev) =>
+        prev &&
+        Math.abs(prev.w - cardEl.offsetWidth) < 1 &&
+        Math.abs(prev.h - cardEl.offsetHeight) < 1
+          ? prev
+          : { w: cardEl.offsetWidth, h: cardEl.offsetHeight },
+      );
+    const ro = new ResizeObserver(upd);
+    ro.observe(cardEl);
+    upd();
+    return () => ro.disconnect();
+  }, [cardEl]);
+
+  const setRatio = (path: string, r: number) =>
+    setRatios((prev) => (prev[path] === r ? prev : { ...prev, [path]: r }));
+
+  const goNext = () => {
+    if (leaving || idx >= n - 1) return;
+    setReturning(false);
+    setLeaving(true);
+    window.setTimeout(() => {
+      setIdx(idx + 1);
+      setLeaving(false);
+    }, 320);
+  };
+  const goPrev = () => {
+    if (leaving || idx <= 0) return;
+    setReturning(true);
+    setIdx(idx - 1);
+    window.setTimeout(() => setReturning(false), 440);
+  };
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const tg = e.target as HTMLElement | null;
+      if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA")) return;
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === "Escape" && !isProcessing) {
+        e.preventDefault();
+        onBack();
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  });
   return (
     <div className="container export-page">
       {toastStack}
@@ -56,26 +122,136 @@ export default function ExportScreen({
       </div>
 
       <div className="xp-body">
-        <section className="xp-grid-wrap" aria-label="Foto yang akan diekspor">
-          <div className="xp-grid">
-            {photos.map((p) => {
-              const { base, ext } = splitName(p.name);
-              const shown = (renames[p.path] ?? base) + ext;
-              const thumb = p.kind === "image" ? previewCache.current.get(p.path) : undefined;
+        <section className="xp-stack" aria-label="Foto yang akan diekspor">
+          <div className="preview-box xp-box">
+            {photos
+              .slice(idx + 1, idx + 4)
+              .map((p, i) => {
+                const depth = i + 1;
+                const { rotate: rotSeed } = seededOffset(p.path, depth);
+                const thumb = p.kind === "image" ? previewCache.current.get(p.path) : undefined;
+                return (
+                  <div
+                    key={p.path}
+                    className="stack-sheet"
+                    style={{
+                      transform: `translate(${-(depth * 7)}%, ${-(depth * 7)}%) rotate(${-(depth * 3) + rotSeed * 0.5}deg) scale(${1 - depth * 0.05})`,
+                      transformOrigin: "80% 80%",
+                      zIndex: 4 - depth,
+                      opacity: 1 - depth * 0.14,
+                      ["--depth-blur" as string]: `${depth * 0.3}px`,
+                      ["--depth-shadow-y" as string]: `${2 + depth * 2}px`,
+                      ["--depth-shadow-blur" as string]: `${8 + depth * 4}px`,
+                    }}
+                    aria-hidden="true"
+                  >
+                    <div
+                      className="stack-sheet-inner"
+                      data-kind={p.kind}
+                      style={backCardStyle(ratios[p.path], box)}
+                    >
+                      {p.kind !== "image" && (
+                        <BackThumb
+                          kind={p.kind}
+                          path={p.path}
+                          name={p.name}
+                          onRatio={(r) => setRatio(p.path, r)}
+                        />
+                      )}
+                      {thumb && (
+                        <img
+                          src={thumb}
+                          alt=""
+                          className="stack-sheet-thumb is-loaded"
+                          draggable={false}
+                          onLoad={(e) => {
+                            const im = e.currentTarget;
+                            if (im.naturalWidth && im.naturalHeight)
+                              setRatio(p.path, im.naturalWidth / im.naturalHeight);
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+              .reverse()}
+
+            {cur && (() => {
+              const r = ratios[cur.path] ?? (cur.kind === "pdf" ? 0.707 : cur.kind === "video" ? 16 / 9 : undefined);
+              const src = cur.kind === "image" ? previewCache.current.get(cur.path) : undefined;
               return (
-                <figure className="xp-item" key={p.path} title={shown}>
-                  <div className="xp-thumb">
-                    {thumb ? (
-                      <img src={thumb} alt="" draggable={false} />
+                <div
+                  key={cur.path}
+                  ref={setCardEl}
+                  className={
+                    "preview-card" +
+                    (leaving ? " exit-left" : "") +
+                    (returning && !leaving ? " undo-from-back" : "")
+                  }
+                  style={{
+                    zIndex: 5,
+                    ["--start-x" as string]: "0px",
+                    ["--start-rot" as string]: "0deg",
+                    ["--undo-x" as string]: "-120%",
+                    ["--undo-y" as string]: "0px",
+                    ["--undo-ms" as string]: "420ms",
+                    ["--enter-rot" as string]: `${-3 + seededOffset(cur.path, 1).rotate * 0.5}deg`,
+                  }}
+                >
+                  <div
+                    className="preview-photo-inner no-resize-anim"
+                    style={r ? { aspectRatio: `${shapeRatio(r)}` } : undefined}
+                  >
+                    {cur.kind !== "image" ? (
+                      <BackThumb
+                        kind={cur.kind}
+                        path={cur.path}
+                        name={cur.name}
+                        onRatio={(x) => setRatio(cur.path, x)}
+                      />
+                    ) : src ? (
+                      <img
+                        src={src}
+                        alt={cur.name}
+                        className="preview-img"
+                        draggable={false}
+                        onLoad={(e) => {
+                          const im = e.currentTarget;
+                          if (im.naturalWidth && im.naturalHeight)
+                            setRatio(cur.path, im.naturalWidth / im.naturalHeight);
+                        }}
+                      />
                     ) : (
-                      <span className="xp-kind">{p.kind === "pdf" ? "PDF" : p.kind === "video" ? "VIDEO" : "IMG"}</span>
+                      <span className="xp-kind">Preview tidak tersedia</span>
                     )}
                   </div>
-                  <figcaption className="xp-name">{shown}</figcaption>
-                </figure>
+                </div>
               );
-            })}
+            })()}
           </div>
+
+          {cur && (
+            <div className="xp-meta">
+              <span className="xp-count">
+                {String(idx + 1).padStart(3, "0")} / {String(n).padStart(3, "0")}
+              </span>
+              <span className="xp-cur-name">
+                {(renames[cur.path] ?? splitName(cur.name).base) + splitName(cur.name).ext}
+              </span>
+            </div>
+          )}
+          <div className="xp-nav">
+            <button type="button" className="ghost-btn" onClick={goPrev} disabled={idx <= 0 || leaving}>
+              ‹ Sebelumnya
+            </button>
+            <button type="button" className="ghost-btn" onClick={goNext} disabled={idx >= n - 1 || leaving}>
+              Berikutnya ›
+            </button>
+          </div>
+          <p className="hint">
+            <kbd>←</kbd> <kbd>→</kbd> lihat foto · <kbd>Esc</kbd> kembali
+          </p>
         </section>
 
         <aside className="xp-panel">
