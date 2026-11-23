@@ -1,9 +1,14 @@
-import type { ReactNode } from "react";
+import type { MutableRefObject, ReactNode } from "react";
 import { FolderGlyph } from "../ui/Glyphs";
+import { splitName } from "../../lib/utils";
+import type { PhotoEntry } from "../../lib/types";
 
 type Props = {
   toastStack: ReactNode;
   count: number;
+  photos: PhotoEntry[];
+  renames: Record<string, string>;
+  previewCache: MutableRefObject<Map<string, string>>;
   destFolder: string;
   isProcessing: boolean;
   exportMode: "original" | "zip";
@@ -15,9 +20,17 @@ type Props = {
   onExport: () => void;
 };
 
+const MODES = [
+  { value: "original", title: "Format asli", desc: "File dipindahkan apa adanya." },
+  { value: "zip", title: "ZIP", desc: "Dibungkus satu .zip, file asli dihapus dari sumber." },
+] as const;
+
 export default function ExportScreen({
   toastStack,
   count,
+  photos,
+  renames,
+  previewCache,
   destFolder,
   isProcessing,
   exportMode,
@@ -29,91 +42,102 @@ export default function ExportScreen({
   onExport,
 }: Props) {
   const canGo = !!destFolder && count > 0 && !isProcessing;
-  const modes = [
-    { value: "original", title: "Format asli", desc: "Semua file dipindahkan tanpa diubah." },
-    {
-      value: "zip",
-      title: "ZIP",
-      desc: "Semua file dibungkus dalam satu .zip, lalu file asli dihapus dari folder sumber.",
-    },
-  ] as const;
   return (
-  <div className="container export-screen">
-    {toastStack}
-    <span className="brand-mark">Selecta</span>
-    <h1>Ekspor {count} file</h1>
-    <p className="export-sub">
-      File dipindahkan dari folder sumber ke folder tujuan.
-    </p>
-
-    <div className="export-section">
-      <div className="export-section-title mono">Lokasi</div>
-      <button
-        type="button"
-        className={`setup-row export-pick${destFolder ? " is-filled" : ""}`}
-        onClick={onPickDest}
-      >
-        <span className="setup-row-label">
-          <span className="setup-icon" aria-hidden="true">
-            <FolderGlyph />
-          </span>
-          <span className="setup-text">
-            <span className="setup-title">Folder tujuan</span>
-            <span className="path-label">{destFolder || "klik untuk memilih…"}</span>
-          </span>
+    <div className="container export-page">
+      {toastStack}
+      <div className="top-bar">
+        <button type="button" className="ghost-btn" onClick={onBack} disabled={isProcessing}>
+          ← Kembali
+        </button>
+        <span className="top-bar-mid">
+          Ekspor <span className="stat-value">{count}</span> file
         </span>
-        <span className="setup-chevron" aria-hidden="true">
-          {destFolder ? "✓" : "›"}
-        </span>
-      </button>
-    </div>
-
-    <div className="export-section">
-      <div className="export-section-title mono">Format</div>
-      <div className="export-modes">
-        {modes.map((m) => (
-          <button
-            key={m.value}
-            type="button"
-            className={`export-mode${exportMode === m.value ? " is-active" : ""}`}
-            onClick={() => setExportMode(m.value)}
-            aria-pressed={exportMode === m.value}
-          >
-            <span className="export-mode-title">{m.title}</span>
-            <span className="export-mode-desc">{m.desc}</span>
-          </button>
-        ))}
+        <span className="xp-spacer" />
       </div>
-      {exportMode === "zip" && (
-        <input
-          className="rename-input export-input"
-          type="text"
-          placeholder="Nama file ZIP"
-          spellCheck={false}
-          value={exportZipName}
-          onChange={(e) => setExportZipName(e.target.value)}
-        />
-      )}
-    </div>
 
-    <div className="export-actions">
-      <button
-        type="button"
-        className="ghost-btn"
-        onClick={onBack}
-        disabled={isProcessing}
-      >
-        ← Kembali
-      </button>
-      <button
-        type="button"
-        className="primary export-go"
-        onClick={onExport}
-        disabled={!canGo}
-      >
-        {isProcessing ? "Mengekspor…" : "Ekspor"}
-      </button>
+      <div className="xp-body">
+        <section className="xp-grid-wrap" aria-label="Foto yang akan diekspor">
+          <div className="xp-grid">
+            {photos.map((p) => {
+              const { base, ext } = splitName(p.name);
+              const shown = (renames[p.path] ?? base) + ext;
+              const thumb = p.kind === "image" ? previewCache.current.get(p.path) : undefined;
+              return (
+                <figure className="xp-item" key={p.path} title={shown}>
+                  <div className="xp-thumb">
+                    {thumb ? (
+                      <img src={thumb} alt="" draggable={false} />
+                    ) : (
+                      <span className="xp-kind">{p.kind === "pdf" ? "PDF" : p.kind === "video" ? "VIDEO" : "IMG"}</span>
+                    )}
+                  </div>
+                  <figcaption className="xp-name">{shown}</figcaption>
+                </figure>
+              );
+            })}
+          </div>
+        </section>
+
+        <aside className="xp-panel">
+          <div className="xp-block">
+            <div className="xp-label">Lokasi tujuan</div>
+            <button
+              type="button"
+              className={`setup-row export-pick${destFolder ? " is-filled" : ""}`}
+              onClick={onPickDest}
+            >
+              <span className="setup-row-label">
+                <span className="setup-icon" aria-hidden="true">
+                  <FolderGlyph />
+                </span>
+                <span className="setup-text">
+                  <span className="setup-title">Folder tujuan</span>
+                  <span className="path-label">{destFolder || "klik untuk memilih…"}</span>
+                </span>
+              </span>
+              <span className="setup-chevron" aria-hidden="true">
+                {destFolder ? "✓" : "›"}
+              </span>
+            </button>
+          </div>
+
+          <div className="xp-block">
+            <div className="xp-label">Format</div>
+            <div className="xp-modes" role="radiogroup" aria-label="Format ekspor">
+              {MODES.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={exportMode === m.value}
+                  className={`xp-mode${exportMode === m.value ? " is-active" : ""}`}
+                  onClick={() => setExportMode(m.value)}
+                >
+                  <span className="xp-mode-title">{m.title}</span>
+                  <span className="xp-mode-desc">{m.desc}</span>
+                </button>
+              ))}
+            </div>
+            {exportMode === "zip" && (
+              <input
+                className="rename-input xp-input"
+                type="text"
+                placeholder="Nama file ZIP"
+                spellCheck={false}
+                value={exportZipName}
+                onChange={(e) => setExportZipName(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="xp-actions">
+            <button type="button" className="primary xp-go" onClick={onExport} disabled={!canGo}>
+              {isProcessing ? "Mengekspor…" : `Ekspor ${count} file`}
+            </button>
+            {!destFolder && <span className="xp-hint">Pilih folder tujuan dulu.</span>}
+          </div>
+        </aside>
+      </div>
     </div>
-  </div>
   );
 }

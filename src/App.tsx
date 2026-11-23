@@ -1850,6 +1850,9 @@ function App() {
       <ExportScreen
         toastStack={ToastStack}
         count={reviewAll.length}
+        photos={reviewAll}
+        renames={renames}
+        previewCache={previewCache}
         destFolder={destFolder}
         isProcessing={isProcessing}
         exportMode={exportMode}
