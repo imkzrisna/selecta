@@ -1550,9 +1550,9 @@ function App() {
     accept: reviewAccept,
     eject: reviewEject,
   };
-  const reviewPend = useRef<("left" | "right" | "down")[]>([]);
+  const reviewPend = useRef<("left" | "right" | "down" | "up")[]>([]);
   const reviewFire = useRef<
-    (d: "left" | "right" | "down", fast: boolean) => void
+    (d: "left" | "right" | "down" | "up", fast: boolean) => void
   >(() => {});
   const [reviewUndoAnim, setReviewUndoAnim] = useState<{
     path: string;
@@ -1566,10 +1566,10 @@ function App() {
 
   reviewFire.current = (dir, fast) => {
     const c = reviewPending[0];
-    if (!c || (dir === "left" && reviewPending.length < 2)) return;
+    if (!c || ((dir === "left" || dir === "right") && reviewPending.length < 2)) return;
     const act = () => {
-      if (dir === "left") reviewActs.current.back();
-      else if (dir === "right") reviewActs.current.accept();
+      if (dir === "left" || dir === "right") reviewActs.current.back();
+      else if (dir === "up") reviewActs.current.accept();
       else reviewActs.current.eject();
     };
     setReviewUndoAnim(null);
@@ -1590,11 +1590,9 @@ function App() {
     }
     const ms = fast
       ? burstExitMs(burstStreak.current)
-      : dir === "left"
+      : dir === "left" || dir === "right"
         ? NORMAL_EXIT_MS.left
-        : dir === "right"
-          ? NORMAL_EXIT_MS.right
-          : 340;
+        : 340;
     if (card && box) {
       flyGhost(card, box, { dir, ms, fast, zIndex: STACK_DEPTH + 2 });
     }
@@ -1607,7 +1605,7 @@ function App() {
     else window.setTimeout(release, 120);
   };
 
-  const reviewPress = (dir: "left" | "right" | "down", repeat: boolean) => {
+  const reviewPress = (dir: "left" | "right" | "down" | "up", repeat: boolean) => {
     const now = performance.now();
     const last = dir === "right" ? lastRightAt : lastLeftAt;
     const fast = repeat || now - last.current < BURST_WINDOW_MS;
@@ -1681,6 +1679,9 @@ function App() {
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         reviewPressRef.current("right", e.repeat);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        reviewPressRef.current("up", e.repeat);
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         reviewPressRef.current("down", e.repeat);
@@ -1688,7 +1689,7 @@ function App() {
     };
     const up = (e: KeyboardEvent) => {
       if (
-        ["ArrowLeft", "ArrowRight", "ArrowDown"].includes(e.key) &&
+        ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) &&
         heldRepeat.current
       ) {
         heldRepeat.current = false;

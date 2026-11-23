@@ -3,7 +3,7 @@ export function flyGhost(
   card: HTMLElement,
   box: HTMLElement,
   opts: {
-    dir: "left" | "right" | "down";
+    dir: "left" | "right" | "down" | "up";
     ms: number;
     fast: boolean;
     zIndex: number;

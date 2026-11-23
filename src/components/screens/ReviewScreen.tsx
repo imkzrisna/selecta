@@ -12,7 +12,7 @@ import {
 } from "../../lib/utils";
 import type { PhotoEntry, Stage } from "../../lib/types";
 
-type Dir = "left" | "right" | "down";
+type Dir = "left" | "right" | "down" | "up";
 
 type Props = {
   ToastStack: ReactNode;
@@ -352,6 +352,14 @@ export default function ReviewScreen(props: Props) {
             </button>
             <button
               type="button"
+              className="ghost-btn"
+              onClick={() => reviewPressRef.current("up", false)}
+              disabled={!cur}
+            >
+              ACC ↑
+            </button>
+            <button
+              type="button"
               className="photo-lightbox-remove"
               onClick={() => reviewPressRef.current("down", false)}
               disabled={!cur || isProcessing}
@@ -362,14 +370,14 @@ export default function ReviewScreen(props: Props) {
               type="button"
               className="ghost-btn"
               onClick={() => reviewPressRef.current("right", false)}
-              disabled={!cur}
+              disabled={list.length < 2}
             >
-              ACC ›
+              Ke belakang ›
             </button>
           </div>
           <p className="hint mono">
-            <kbd>←</kbd> ke belakang · <kbd>→</kbd> acc · <kbd>↓</kbd> keluarkan
-            · <kbd>⌘Z</kbd> batal · <kbd>Esc</kbd> kembali
+            <kbd>←</kbd> <kbd>→</kbd> ke belakang · <kbd>↑</kbd> acc ·{" "}
+            <kbd>↓</kbd> keluarkan · <kbd>⌘Z</kbd> batal · <kbd>Esc</kbd> kembali
           </p>
         </div>
       </div>
