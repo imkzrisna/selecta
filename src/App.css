@@ -3878,3 +3878,13 @@ body {
 .xp-cur-name { font-size: 13px; color: var(--ink-secondary); max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xp-nav { flex-shrink: 0; display: flex; gap: var(--space-3); margin-top: var(--space-2); }
 .xp-stack .hint { flex-shrink: 0; margin-top: var(--space-2); }
+
+/* ---------- Ekspor: ganti nama file ---------- */
+.xp-rename {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+.xp-rename-input { width: 280px; max-width: 50vw; text-align: right; }
+.xp-rename-ext { font-size: 13px; color: var(--muted); }

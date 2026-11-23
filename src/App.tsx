@@ -1839,8 +1839,6 @@ function App() {
         exitInProgress={exitInProgress}
         setFullViewPhoto={setFullViewPhoto}
         setZoomPhoto={setZoomPhoto}
-        renames={renames}
-        setRenames={setRenames}
       />
     );
   }
@@ -1852,6 +1850,7 @@ function App() {
         count={reviewAll.length}
         photos={reviewAll}
         renames={renames}
+        setRenames={setRenames}
         previewCache={previewCache}
         destFolder={destFolder}
         isProcessing={isProcessing}

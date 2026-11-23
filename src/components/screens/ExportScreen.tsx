@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { MutableRefObject, ReactNode } from "react";
+import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import BackThumb from "../media/BackThumb";
 import { FolderGlyph } from "../ui/Glyphs";
-import { splitName, seededOffset, backCardStyle, shapeRatio } from "../../lib/utils";
+import { splitName, cleanBase, seededOffset, backCardStyle, shapeRatio } from "../../lib/utils";
 import {
   NORMAL_EXIT_MS,
   BURST_WINDOW_MS,
@@ -20,6 +20,7 @@ type Props = {
   count: number;
   photos: PhotoEntry[];
   renames: Record<string, string>;
+  setRenames: Dispatch<SetStateAction<Record<string, string>>>;
   previewCache: MutableRefObject<Map<string, string>>;
   destFolder: string;
   isProcessing: boolean;
@@ -41,7 +42,7 @@ const MODES = [
 type Dir = "next" | "prev";
 
 export default function ExportScreen({
-  toastStack, count, photos, renames, previewCache, destFolder, isProcessing,
+  toastStack, count, photos, renames, setRenames, previewCache, destFolder, isProcessing,
   exportMode, setExportMode, exportZipName, setExportZipName, onPickDest, onBack, onExport,
 }: Props) {
   const canGo = !!destFolder && count > 0 && !isProcessing;
@@ -327,7 +328,62 @@ export default function ExportScreen({
               <span className="xp-count">
                 {String(idx + 1).padStart(3, "0")} / {String(n).padStart(3, "0")}
               </span>
-              <span className="xp-cur-name">{shownName(cur)}</span>
+              <div className="xp-rename">
+                <input
+                  key={cur.path}
+                  className="rename-input xp-rename-input"
+                  type="text"
+                  spellCheck={false}
+                  aria-label="Nama file"
+                  title={shownName(cur)}
+                  disabled={isProcessing}
+                  value={renames[cur.path] ?? splitName(cur.name).base}
+                  onChange={(e) =>
+                    setRenames((prev) => ({ ...prev, [cur.path]: e.target.value }))
+                  }
+                  onBlur={(e) => {
+                    const v = cleanBase(e.target.value);
+                    setRenames((prev) => {
+                      const next = { ...prev };
+                      if (!v || v === splitName(cur.name).base) delete next[cur.path];
+                      else next[cur.path] = v;
+                      return next;
+                    });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setRenames((prev) => {
+                        const next = { ...prev };
+                        delete next[cur.path];
+                        return next;
+                      });
+                      e.currentTarget.blur();
+                    }
+                  }}
+                />
+                <span className="xp-rename-ext">{splitName(cur.name).ext}</span>
+                {renames[cur.path] !== undefined && (
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() =>
+                      setRenames((prev) => {
+                        const next = { ...prev };
+                        delete next[cur.path];
+                        return next;
+                      })
+                    }
+                  >
+                    Asli
+                  </button>
+                )}
+              </div>
             </div>
           )}
           <div className="xp-nav">
@@ -339,7 +395,7 @@ export default function ExportScreen({
             </button>
           </div>
           <p className="hint">
-            <kbd>←</kbd> <kbd>→</kbd> lihat foto · <kbd>Esc</kbd> kembali
+            <kbd>←</kbd> <kbd>→</kbd> lihat foto · ketik untuk ganti nama · <kbd>Esc</kbd> kembali
           </p>
         </section>
 

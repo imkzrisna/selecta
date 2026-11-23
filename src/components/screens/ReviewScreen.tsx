@@ -5,8 +5,6 @@ import BackThumb from "../media/BackThumb";
 import {
   seededOffset,
   backCardStyle,
-  cleanBase,
-  splitName,
   longKindOf,
   shapeRatio,
 } from "../../lib/utils";
@@ -37,8 +35,6 @@ type Props = {
   exitInProgress: MutableRefObject<boolean>;
   setFullViewPhoto: (p: PhotoEntry | null) => void;
   setZoomPhoto: (p: PhotoEntry | null) => void;
-  renames: Record<string, string>;
-  setRenames: Dispatch<SetStateAction<Record<string, string>>>;
 };
 
 export default function ReviewScreen(props: Props) {
@@ -47,7 +43,6 @@ export default function ReviewScreen(props: Props) {
     setStage, isProcessing, reviewIndex, reviewUndoCount, reviewUndoFlyRef, reviewPressRef,
     burst, reviewBox, previewCache, frontFull, setReviewCardEl, reviewUndoAnim,
     scrolledPath, setScrolledPath, exitInProgress, setFullViewPhoto, setZoomPhoto,
-    renames, setRenames,
   } = props;
     const list = reviewPending;
     const idx = Math.min(reviewIndex, Math.max(0, list.length - 1));
@@ -278,71 +273,6 @@ export default function ReviewScreen(props: Props) {
             )}
           </div>
 
-          {cur && (
-            <div className="rename-row mono">
-              <label className="rename-label" htmlFor="rename-input">
-                Nama file
-              </label>
-              <div className="rename-field">
-                <input
-                  id="rename-input"
-                  key={cur.path}
-                  className="rename-input"
-                  type="text"
-                  spellCheck={false}
-                  disabled={isProcessing}
-                  value={renames[cur.path] ?? splitName(cur.name).base}
-                  onChange={(e) =>
-                    setRenames((prev) => ({
-                      ...prev,
-                      [cur.path]: e.target.value,
-                    }))
-                  }
-                  onBlur={(e) => {
-                    const v = cleanBase(e.target.value);
-                    setRenames((prev) => {
-                      const next = { ...prev };
-                      if (!v || v === splitName(cur.name).base)
-                        delete next[cur.path];
-                      else next[cur.path] = v;
-                      return next;
-                    });
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      e.currentTarget.blur();
-                    } else if (e.key === "Escape") {
-                      e.preventDefault();
-                      setRenames((prev) => {
-                        const next = { ...prev };
-                        delete next[cur.path];
-                        return next;
-                      });
-                      e.currentTarget.blur();
-                    }
-                  }}
-                />
-                <span className="rename-ext">{splitName(cur.name).ext}</span>
-                {renames[cur.path] !== undefined && (
-                  <button
-                    type="button"
-                    className="ghost-btn rename-reset"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() =>
-                      setRenames((prev) => {
-                        const next = { ...prev };
-                        delete next[cur.path];
-                        return next;
-                      })
-                    }
-                  >
-                    Asli
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
           <div className="controls">
             <button
               type="button"
