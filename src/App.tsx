@@ -1415,12 +1415,15 @@ function App() {
     () => reviewAll.filter((p) => !approved.includes(p.path)),
     [reviewAll, approved],
   );
+  const [reviewIdx, setReviewIdx] = useState(0);
+  const ridx = Math.min(reviewIdx, Math.max(0, reviewPending.length - 1));
 
   const prevStage = useRef(stage);
   useEffect(() => {
     if (stage === "review" && prevStage.current === "sorting") {
       setReviewOrder([...selectedPhotos].reverse().map((p) => p.path));
       setApproved([]);
+      setReviewIdx(0);
       reviewHist.current = [];
       setReviewUndoCount(0);
     }
@@ -1433,7 +1436,7 @@ function App() {
     | { type: "accept"; path: string }
     | { type: "eject"; photo: PhotoEntry; prevOrder: string[] };
   const reviewHist = useRef<ReviewAct[]>([]);
-  const [reviewUndoCount, setReviewUndoCount] = useState(0);
+  const [, setReviewUndoCount] = useState(0);
   const pushReviewHist = (a: ReviewAct) => {
     reviewHist.current = [...reviewHist.current, a];
     setReviewUndoCount(reviewHist.current.length);
@@ -1442,20 +1445,20 @@ function App() {
   const reviewReady = reviewPending.length === 0 && reviewAll.length > 0;
 
   const reviewBack = useCallback(() => {
-    const c = reviewPending[0];
+    const c = reviewPending[ridx];
     if (!c || reviewPending.length < 2) return;
     pushReviewHist({ type: "back", prevOrder: reviewAll.map((p) => p.path) });
     setReviewOrder([
       ...reviewAll.map((p) => p.path).filter((x) => x !== c.path),
       c.path,
     ]);
-  }, [reviewPending, reviewAll]);
+  }, [reviewPending, reviewAll, ridx]);
   const reviewAccept = useCallback(() => {
-    const c = reviewPending[0];
+    const c = reviewPending[ridx];
     if (!c) return;
     pushReviewHist({ type: "accept", path: c.path });
     setApproved((prev) => [...prev, c.path]);
-  }, [reviewPending]);
+  }, [reviewPending, ridx]);
   const [reviewCardEl, setReviewCardEl] = useState<HTMLDivElement | null>(null);
   const [reviewBox, setReviewBox] = useState<{ w: number; h: number } | null>(
     null,
@@ -1477,7 +1480,7 @@ function App() {
   }, [reviewCardEl]);
   useEffect(() => {
     if (stage !== "review") return;
-    const c = reviewPending[0];
+    const c = reviewPending[ridx];
     if (!c || c.kind !== "image" || frontFull.current.has(c.path)) return;
     let cancelled = false;
     invoke<string>("get_full_image", { path: c.path })
@@ -1495,14 +1498,14 @@ function App() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, reviewPending[0]?.path]);
+  }, [stage, reviewPending[ridx]?.path]);
 
   useEffect(() => {
     if (stage === "review") setScrolledPath(null);
-  }, [stage, reviewPending[0]?.path]);
+  }, [stage, reviewPending[ridx]?.path]);
 
   const reviewEject = useCallback(() => {
-    const c = reviewPending[0];
+    const c = reviewPending[ridx];
     if (!c) return;
     pushReviewHist({
       type: "eject",
@@ -1511,7 +1514,7 @@ function App() {
     });
     setApproved((prev) => prev.filter((x) => x !== c.path));
     handleRemoveSelected(c);
-  }, [reviewPending, reviewAll, handleRemoveSelected]);
+  }, [reviewPending, reviewAll, ridx, handleRemoveSelected]);
 
   const reviewUndo = useCallback(() => {
     const last = reviewHist.current[reviewHist.current.length - 1];
@@ -1565,13 +1568,11 @@ function App() {
   };
 
   reviewFire.current = (dir, fast) => {
-    const c = reviewPending[0];
-    if (!c || ((dir === "left" || dir === "right") && reviewPending.length < 2)) return;
-    const act = () => {
-      if (dir === "left" || dir === "right") reviewActs.current.back();
-      else if (dir === "up") reviewActs.current.accept();
-      else reviewActs.current.eject();
-    };
+    const n = reviewPending.length;
+    const c = reviewPending[ridx];
+    if (!c) return;
+    if (dir === "right" && ridx >= n - 1) return;
+    if (dir === "left" && ridx <= 0) return;
     setReviewUndoAnim(null);
     const card = reviewCardEl;
     const box = card?.parentElement;
@@ -1590,13 +1591,22 @@ function App() {
     }
     const ms = fast
       ? burstExitMs(burstStreak.current)
-      : dir === "left" || dir === "right"
-        ? NORMAL_EXIT_MS.left
-        : 340;
-    if (card && box) {
-      flyGhost(card, box, { dir, ms, fast, zIndex: STACK_DEPTH + 2 });
+      : dir === "up" || dir === "down"
+        ? 340
+        : NORMAL_EXIT_MS.left;
+    // Mundur (←) tidak menerbangkan kartu: kartu sebelumnya muncul lewat pop-in.
+    if (dir !== "left" && card && box) {
+      flyGhost(card, box, {
+        dir: dir === "right" ? "left" : dir,
+        ms,
+        fast,
+        zIndex: STACK_DEPTH + 2,
+      });
     }
-    act();
+    if (dir === "right") setReviewIdx(ridx + 1);
+    else if (dir === "left") setReviewIdx(ridx - 1);
+    else if (dir === "up") reviewActs.current.accept();
+    else reviewActs.current.eject();
     const release = () => {
       exitInProgress.current = false;
       reviewDrain();
@@ -1667,12 +1677,6 @@ function App() {
       if (e.key === "Escape") {
         e.preventDefault();
         setStage("sorting");
-      } else if (
-        ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) ||
-        e.key === "Backspace"
-      ) {
-        e.preventDefault();
-        reviewUndoFlyRef.current();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         reviewPressRef.current("left", e.repeat);
@@ -1803,8 +1807,7 @@ function App() {
         setStackAspectRatios={setStackAspectRatios}
         setStage={setStage}
         isProcessing={isProcessing}
-        reviewUndoCount={reviewUndoCount}
-        reviewUndoFlyRef={reviewUndoFlyRef}
+        reviewIndex={ridx}
         reviewPressRef={reviewPressRef}
         burst={burst}
         reviewBox={reviewBox}

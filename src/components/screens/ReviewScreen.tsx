@@ -22,8 +22,7 @@ type Props = {
   setStackAspectRatios: Dispatch<SetStateAction<Record<string, number>>>;
   setStage: (s: Stage) => void;
   isProcessing: boolean;
-  reviewUndoCount: number;
-  reviewUndoFlyRef: MutableRefObject<() => void>;
+  reviewIndex: number;
   reviewPressRef: MutableRefObject<(dir: Dir, repeat: boolean) => void>;
   burst: boolean;
   reviewBox: { w: number; h: number } | null;
@@ -43,14 +42,15 @@ type Props = {
 export default function ReviewScreen(props: Props) {
   const {
     ToastStack, reviewPending, reviewAll, stackAspectRatios, setStackAspectRatios,
-    setStage, isProcessing, reviewUndoCount, reviewUndoFlyRef, reviewPressRef,
+    setStage, isProcessing, reviewIndex, reviewPressRef,
     burst, reviewBox, previewCache, frontFull, setReviewCardEl, reviewUndoAnim,
     scrolledPath, setScrolledPath, exitInProgress, setFullViewPhoto, setZoomPhoto,
     renames, setRenames,
   } = props;
     const list = reviewPending;
-    const cur = list[0];
-    const behind = list[1];
+    const idx = Math.min(reviewIndex, Math.max(0, list.length - 1));
+    const cur = list[idx];
+    const behind = list[idx + 1];
     const all = reviewAll;
     const approvedCount = all.length - list.length;
     const setRatio = (r: number) => {
@@ -75,14 +75,6 @@ export default function ReviewScreen(props: Props) {
             {all.length}
           </span>
           <div className="top-bar-actions">
-            <button
-              className="ghost-btn"
-              onClick={() => reviewUndoFlyRef.current()}
-              disabled={isProcessing || reviewUndoCount === 0}
-              title="Batalkan keputusan terakhir (⌘Z)"
-            >
-              Batal
-            </button>
             <button
               className="primary review-save"
               onClick={() => setStage("export")}
@@ -253,8 +245,8 @@ export default function ReviewScreen(props: Props) {
                       </span>
                     )}
                     <span className="frame-counter mono">
-                      {String(approvedCount + 1).padStart(3, "0")} /{" "}
-                      {String(all.length).padStart(3, "0")}
+                      {String(idx + 1).padStart(3, "0")} /{" "}
+                      {String(list.length).padStart(3, "0")}
                     </span>
                   </div>
                 );
@@ -346,15 +338,15 @@ export default function ReviewScreen(props: Props) {
               type="button"
               className="ghost-btn"
               onClick={() => reviewPressRef.current("left", false)}
-              disabled={list.length < 2}
+              disabled={idx <= 0}
             >
-              ‹ Ke belakang
+              ‹ Sebelumnya
             </button>
             <button
               type="button"
               className="ghost-btn"
               onClick={() => reviewPressRef.current("up", false)}
-              disabled={!cur}
+              disabled={!cur || isProcessing}
             >
               ACC ↑
             </button>
@@ -370,14 +362,14 @@ export default function ReviewScreen(props: Props) {
               type="button"
               className="ghost-btn"
               onClick={() => reviewPressRef.current("right", false)}
-              disabled={list.length < 2}
+              disabled={idx >= list.length - 1}
             >
-              Ke belakang ›
+              Berikutnya ›
             </button>
           </div>
           <p className="hint mono">
-            <kbd>←</kbd> <kbd>→</kbd> ke belakang · <kbd>↑</kbd> acc ·{" "}
-            <kbd>↓</kbd> keluarkan · <kbd>⌘Z</kbd> batal · <kbd>Esc</kbd> kembali
+            <kbd>←</kbd> <kbd>→</kbd> navigasi · <kbd>↑</kbd> acc ·{" "}
+            <kbd>↓</kbd> keluarkan · <kbd>Esc</kbd> kembali
           </p>
         </div>
       </div>
