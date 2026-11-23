@@ -31,7 +31,7 @@ type Props = {
   previewCache: MutableRefObject<Map<string, string>>;
   frontFull: MutableRefObject<Map<string, string>>;
   setReviewCardEl: Dispatch<SetStateAction<HTMLDivElement | null>>;
-  reviewUndoAnim: { path: string; kind: "from-back" | "from-tray" | "from-below" } | null;
+  reviewUndoAnim: { path: string; kind: "from-back" | "from-tray" | "from-below" | "from-above" } | null;
   scrolledPath: string | null;
   setScrolledPath: Dispatch<SetStateAction<string | null>>;
   exitInProgress: MutableRefObject<boolean>;
@@ -81,7 +81,7 @@ export default function ReviewScreen(props: Props) {
               className="ghost-btn"
               onClick={() => reviewUndoFlyRef.current()}
               disabled={isProcessing || reviewUndoCount === 0}
-              title="Kembalikan foto yang baru dikeluarkan (⌘Z)"
+              title="Batalkan ACC atau pengeluaran terakhir (⌘Z)"
             >
               Kembalikan
             </button>

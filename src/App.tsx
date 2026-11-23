@@ -1456,6 +1456,7 @@ function App() {
   const reviewAccept = useCallback(() => {
     const c = reviewPending[ridx];
     if (!c) return;
+    pushReviewHist({ type: "accept", path: c.path });
     setApproved((prev) => [...prev, c.path]);
   }, [reviewPending, ridx]);
   const [reviewCardEl, setReviewCardEl] = useState<HTMLDivElement | null>(null);
@@ -1558,7 +1559,7 @@ function App() {
   >(() => {});
   const [reviewUndoAnim, setReviewUndoAnim] = useState<{
     path: string;
-    kind: "from-back" | "from-tray" | "from-below";
+    kind: "from-back" | "from-tray" | "from-below" | "from-above";
   } | null>(null);
 
   const reviewDrain = () => {
@@ -1635,17 +1636,25 @@ function App() {
     if (!last || isProcessing) return;
     reviewPend.current = [];
     let path: string | undefined;
-    let kind: "from-back" | "from-tray" | "from-below" = "from-tray";
+    let kind: "from-back" | "from-tray" | "from-below" | "from-above" = "from-tray";
     if (last.type === "back") {
       kind = "from-back";
       path = last.prevOrder.find((x) => !approved.includes(x));
     } else if (last.type === "accept") {
       path = last.path;
+      kind = "from-above";
     } else {
       path = last.photo.path;
       kind = "from-below";
     }
     reviewUndo();
+    if (last.type === "accept") {
+      const pend = reviewAll
+        .map((p) => p.path)
+        .filter((x) => !approved.includes(x) || x === last.path);
+      const at = pend.indexOf(last.path);
+      if (at >= 0) setReviewIdx(at);
+    }
     if (last.type === "eject") {
       const pend = last.prevOrder.filter((x) => !approved.includes(x));
       const at = pend.indexOf(last.photo.path);

@@ -3747,3 +3747,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .preview-card.undo-from-below { animation: none; }
 }
+
+/* ---------- Review: undo ACC = kebalikan exit-up (turun dari atas) ---------- */
+@keyframes undo-from-above {
+  from { transform: translate(0, -120%) rotate(-4deg) scale(0.9); opacity: 0; }
+  60% { opacity: 1; }
+  to { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+}
+.preview-card.undo-from-above {
+  animation: undo-from-above 400ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-card.undo-from-above { animation: none; }
+}
