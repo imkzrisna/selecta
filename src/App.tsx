@@ -1558,7 +1558,7 @@ function App() {
   >(() => {});
   const [reviewUndoAnim, setReviewUndoAnim] = useState<{
     path: string;
-    kind: "from-back" | "from-tray";
+    kind: "from-back" | "from-tray" | "from-below";
   } | null>(null);
 
   const reviewDrain = () => {
@@ -1635,7 +1635,7 @@ function App() {
     if (!last || isProcessing) return;
     reviewPend.current = [];
     let path: string | undefined;
-    let kind: "from-back" | "from-tray" = "from-tray";
+    let kind: "from-back" | "from-tray" | "from-below" = "from-tray";
     if (last.type === "back") {
       kind = "from-back";
       path = last.prevOrder.find((x) => !approved.includes(x));
@@ -1643,6 +1643,7 @@ function App() {
       path = last.path;
     } else {
       path = last.photo.path;
+      kind = "from-below";
     }
     reviewUndo();
     if (last.type === "eject") {

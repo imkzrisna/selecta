@@ -31,7 +31,7 @@ type Props = {
   previewCache: MutableRefObject<Map<string, string>>;
   frontFull: MutableRefObject<Map<string, string>>;
   setReviewCardEl: Dispatch<SetStateAction<HTMLDivElement | null>>;
-  reviewUndoAnim: { path: string; kind: "from-back" | "from-tray" } | null;
+  reviewUndoAnim: { path: string; kind: "from-back" | "from-tray" | "from-below" } | null;
   scrolledPath: string | null;
   setScrolledPath: Dispatch<SetStateAction<string | null>>;
   exitInProgress: MutableRefObject<boolean>;
