@@ -1436,7 +1436,7 @@ function App() {
     | { type: "accept"; path: string }
     | { type: "eject"; photo: PhotoEntry; prevOrder: string[] };
   const reviewHist = useRef<ReviewAct[]>([]);
-  const [, setReviewUndoCount] = useState(0);
+  const [reviewUndoCount, setReviewUndoCount] = useState(0);
   const pushReviewHist = (a: ReviewAct) => {
     reviewHist.current = [...reviewHist.current, a];
     setReviewUndoCount(reviewHist.current.length);
@@ -1456,7 +1456,6 @@ function App() {
   const reviewAccept = useCallback(() => {
     const c = reviewPending[ridx];
     if (!c) return;
-    pushReviewHist({ type: "accept", path: c.path });
     setApproved((prev) => [...prev, c.path]);
   }, [reviewPending, ridx]);
   const [reviewCardEl, setReviewCardEl] = useState<HTMLDivElement | null>(null);
@@ -1646,6 +1645,11 @@ function App() {
       path = last.photo.path;
     }
     reviewUndo();
+    if (last.type === "eject") {
+      const pend = last.prevOrder.filter((x) => !approved.includes(x));
+      const at = pend.indexOf(last.photo.path);
+      if (at >= 0) setReviewIdx(at);
+    }
     if (path) {
       setReviewUndoAnim({ path, kind });
       exitInProgress.current = true;
@@ -1677,6 +1681,9 @@ function App() {
       if (e.key === "Escape") {
         e.preventDefault();
         setStage("sorting");
+      } else if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        reviewUndoFlyRef.current();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         reviewPressRef.current("left", e.repeat);
@@ -1808,6 +1815,8 @@ function App() {
         setStage={setStage}
         isProcessing={isProcessing}
         reviewIndex={ridx}
+        reviewUndoCount={reviewUndoCount}
+        reviewUndoFlyRef={reviewUndoFlyRef}
         reviewPressRef={reviewPressRef}
         burst={burst}
         reviewBox={reviewBox}

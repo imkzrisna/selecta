@@ -23,6 +23,8 @@ type Props = {
   setStage: (s: Stage) => void;
   isProcessing: boolean;
   reviewIndex: number;
+  reviewUndoCount: number;
+  reviewUndoFlyRef: MutableRefObject<() => void>;
   reviewPressRef: MutableRefObject<(dir: Dir, repeat: boolean) => void>;
   burst: boolean;
   reviewBox: { w: number; h: number } | null;
@@ -42,7 +44,7 @@ type Props = {
 export default function ReviewScreen(props: Props) {
   const {
     ToastStack, reviewPending, reviewAll, stackAspectRatios, setStackAspectRatios,
-    setStage, isProcessing, reviewIndex, reviewPressRef,
+    setStage, isProcessing, reviewIndex, reviewUndoCount, reviewUndoFlyRef, reviewPressRef,
     burst, reviewBox, previewCache, frontFull, setReviewCardEl, reviewUndoAnim,
     scrolledPath, setScrolledPath, exitInProgress, setFullViewPhoto, setZoomPhoto,
     renames, setRenames,
@@ -75,6 +77,14 @@ export default function ReviewScreen(props: Props) {
             {all.length}
           </span>
           <div className="top-bar-actions">
+            <button
+              className="ghost-btn"
+              onClick={() => reviewUndoFlyRef.current()}
+              disabled={isProcessing || reviewUndoCount === 0}
+              title="Kembalikan foto yang baru dikeluarkan (⌘Z)"
+            >
+              Kembalikan
+            </button>
             <button
               className="primary review-save"
               onClick={() => setStage("export")}
@@ -369,7 +379,7 @@ export default function ReviewScreen(props: Props) {
           </div>
           <p className="hint mono">
             <kbd>←</kbd> <kbd>→</kbd> navigasi · <kbd>↑</kbd> acc ·{" "}
-            <kbd>↓</kbd> keluarkan · <kbd>Esc</kbd> kembali
+            <kbd>↓</kbd> keluarkan · <kbd>⌘Z</kbd> kembalikan · <kbd>Esc</kbd> kembali
           </p>
         </div>
       </div>
