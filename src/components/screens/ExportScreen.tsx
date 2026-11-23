@@ -1,8 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MutableRefObject, ReactNode } from "react";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import BackThumb from "../media/BackThumb";
 import { FolderGlyph } from "../ui/Glyphs";
 import { splitName, seededOffset, backCardStyle, shapeRatio } from "../../lib/utils";
+import {
+  NORMAL_EXIT_MS,
+  BURST_WINDOW_MS,
+  BURST_IDLE_MS,
+  MAX_PENDING_BURST,
+  UNDO_BACK_MS,
+  burstExitMs,
+} from "../../lib/motion";
+import { flyGhost } from "../../lib/ghost";
 import type { PhotoEntry } from "../../lib/types";
 
 type Props = {
@@ -22,47 +32,54 @@ type Props = {
   onExport: () => void;
 };
 
+const STACK_DEPTH = 2;
 const MODES = [
   { value: "original", title: "Format asli", desc: "File dipindahkan apa adanya." },
   { value: "zip", title: "ZIP", desc: "Dibungkus satu .zip, file asli dihapus dari sumber." },
 ] as const;
 
+type Dir = "next" | "prev";
+
 export default function ExportScreen({
-  toastStack,
-  count,
-  photos,
-  renames,
-  previewCache,
-  destFolder,
-  isProcessing,
-  exportMode,
-  setExportMode,
-  exportZipName,
-  setExportZipName,
-  onPickDest,
-  onBack,
-  onExport,
+  toastStack, count, photos, renames, previewCache, destFolder, isProcessing,
+  exportMode, setExportMode, exportZipName, setExportZipName, onPickDest, onBack, onExport,
 }: Props) {
   const canGo = !!destFolder && count > 0 && !isProcessing;
+  const n = photos.length;
 
   const [idx0, setIdx] = useState(0);
-  const [leaving, setLeaving] = useState(false);
-  const [returning, setReturning] = useState(false);
+  const idx = Math.min(idx0, Math.max(0, n - 1));
+  const idxRef = useRef(idx);
+  idxRef.current = idx;
+  const cur = photos[idx];
+
   const [ratios, setRatios] = useState<Record<string, number>>({});
   const [cardEl, setCardEl] = useState<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  cardRef.current = cardEl;
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
-  const n = photos.length;
-  const idx = Math.min(idx0, Math.max(0, n - 1));
-  const cur = photos[idx];
+  const [burst, setBurst] = useState(false);
+  const [undoPath, setUndoPath] = useState<string | null>(null);
+  const [, bumpFull] = useState(0);
+  const frontFull = useRef<Map<string, string>>(new Map());
+
+  const gate = useRef(false);
+  const pend = useRef<Dir[]>([]);
+  const lastAt = useRef({ next: 0, prev: 0 });
+  const held = useRef(false);
+  const streak = useRef(0);
+  const burstRef = useRef(false);
+  const burstTimer = useRef<number | null>(null);
+
+  const setRatio = (path: string, r: number) =>
+    setRatios((p) => (p[path] === r ? p : { ...p, [path]: r }));
 
   useEffect(() => {
     if (!cardEl) return;
     const upd = () =>
-      setBox((prev) =>
-        prev &&
-        Math.abs(prev.w - cardEl.offsetWidth) < 1 &&
-        Math.abs(prev.h - cardEl.offsetHeight) < 1
-          ? prev
+      setBox((p) =>
+        p && Math.abs(p.w - cardEl.offsetWidth) < 1 && Math.abs(p.h - cardEl.offsetHeight) < 1
+          ? p
           : { w: cardEl.offsetWidth, h: cardEl.offsetHeight },
       );
     const ro = new ResizeObserver(upd);
@@ -71,43 +88,126 @@ export default function ExportScreen({
     return () => ro.disconnect();
   }, [cardEl]);
 
-  const setRatio = (path: string, r: number) =>
-    setRatios((prev) => (prev[path] === r ? prev : { ...prev, [path]: r }));
+  // Foto depan: muat file asli supaya tajam (sama seperti sorting/review).
+  useEffect(() => {
+    const c = photos[idx];
+    if (!c || c.kind !== "image" || frontFull.current.has(c.path)) return;
+    let cancelled = false;
+    invoke<string>("get_full_image", { path: c.path })
+      .then((full) => {
+        const url = convertFileSrc(full);
+        const img = new Image();
+        img.onload = () => {
+          frontFull.current.set(c.path, url);
+          if (!cancelled) bumpFull((v) => v + 1);
+        };
+        img.src = url;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur?.path]);
 
-  const goNext = () => {
-    if (leaving || idx >= n - 1) return;
-    setReturning(false);
-    setLeaving(true);
+  const drain = () => {
+    const d = pend.current.shift();
+    if (d) fireRef.current(d, true);
+  };
+
+  const fire = (dir: Dir, fast: boolean) => {
+    const i = idxRef.current;
+    if (dir === "next" && i >= n - 1) return;
+    if (dir === "prev" && i <= 0) return;
+    gate.current = true;
+    setUndoPath(null);
+    if (fast) {
+      streak.current += 1;
+      burstRef.current = true;
+      setBurst(true);
+      if (burstTimer.current) window.clearTimeout(burstTimer.current);
+      burstTimer.current = window.setTimeout(() => {
+        burstRef.current = false;
+        setBurst(false);
+      }, BURST_IDLE_MS);
+    } else {
+      streak.current = 0;
+    }
+    let wait = 120;
+    if (dir === "next") {
+      const ms = fast ? burstExitMs(streak.current) : NORMAL_EXIT_MS.left;
+      const card = cardRef.current;
+      if (card?.parentElement) {
+        flyGhost(card, card.parentElement, { dir: "left", ms, fast, zIndex: STACK_DEPTH + 2 });
+      }
+      idxRef.current = i + 1;
+      setIdx(i + 1);
+    } else {
+      idxRef.current = i - 1;
+      setUndoPath(photos[i - 1].path);
+      setIdx(i - 1);
+      wait = fast ? 110 : UNDO_BACK_MS;
+    }
     window.setTimeout(() => {
-      setIdx(idx + 1);
-      setLeaving(false);
-    }, 320);
+      gate.current = false;
+      drain();
+    }, fast ? 40 : wait);
   };
-  const goPrev = () => {
-    if (leaving || idx <= 0) return;
-    setReturning(true);
-    setIdx(idx - 1);
-    window.setTimeout(() => setReturning(false), 440);
+  const fireRef = useRef(fire);
+  fireRef.current = fire;
+
+  const press = (dir: Dir, repeat: boolean) => {
+    const now = performance.now();
+    const fast = repeat || now - lastAt.current[dir] < BURST_WINDOW_MS;
+    lastAt.current[dir] = now;
+    if (repeat) held.current = true;
+    if (gate.current) {
+      if (fast && pend.current.length < MAX_PENDING_BURST) pend.current.push(dir);
+      return;
+    }
+    fireRef.current(dir, fast);
   };
+  const pressRef = useRef(press);
+  pressRef.current = press;
+  const backRef = useRef(onBack);
+  backRef.current = onBack;
+  const busyRef = useRef(isProcessing);
+  busyRef.current = isProcessing;
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => {
+    const down = (e: KeyboardEvent) => {
       const tg = e.target as HTMLElement | null;
       if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA")) return;
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        goNext();
+        pressRef.current("next", e.repeat);
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        goPrev();
-      } else if (e.key === "Escape" && !isProcessing) {
+        pressRef.current("prev", e.repeat);
+      } else if (e.key === "Escape" && !busyRef.current) {
         e.preventDefault();
-        onBack();
+        backRef.current();
       }
     };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  });
+    const up = (e: KeyboardEvent) => {
+      if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && held.current) {
+        held.current = false;
+        pend.current = [];
+      }
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, []);
+
+  const shownName = (p: PhotoEntry) => {
+    const { base, ext } = splitName(p.name);
+    return (renames[p.path] ?? base) + ext;
+  };
+
   return (
     <div className="container export-page">
       {toastStack}
@@ -123,9 +223,9 @@ export default function ExportScreen({
 
       <div className="xp-body">
         <section className="xp-stack" aria-label="Foto yang akan diekspor">
-          <div className="preview-box xp-box">
+          <div className={`preview-box xp-box${burst ? " is-burst" : ""}`}>
             {photos
-              .slice(idx + 1, idx + 4)
+              .slice(idx + 1, idx + STACK_DEPTH)
               .map((p, i) => {
                 const depth = i + 1;
                 const { rotate: rotSeed } = seededOffset(p.path, depth);
@@ -137,7 +237,7 @@ export default function ExportScreen({
                     style={{
                       transform: `translate(${-(depth * 7)}%, ${-(depth * 7)}%) rotate(${-(depth * 3) + rotSeed * 0.5}deg) scale(${1 - depth * 0.05})`,
                       transformOrigin: "80% 80%",
-                      zIndex: 4 - depth,
+                      zIndex: STACK_DEPTH - depth,
                       opacity: 1 - depth * 0.14,
                       ["--depth-blur" as string]: `${depth * 0.3}px`,
                       ["--depth-shadow-y" as string]: `${2 + depth * 2}px`,
@@ -151,12 +251,7 @@ export default function ExportScreen({
                       style={backCardStyle(ratios[p.path], box)}
                     >
                       {p.kind !== "image" && (
-                        <BackThumb
-                          kind={p.kind}
-                          path={p.path}
-                          name={p.name}
-                          onRatio={(r) => setRatio(p.path, r)}
-                        />
+                        <BackThumb kind={p.kind} path={p.path} name={p.name} onRatio={(r) => setRatio(p.path, r)} />
                       )}
                       {thumb && (
                         <img
@@ -177,58 +272,54 @@ export default function ExportScreen({
               })
               .reverse()}
 
-            {cur && (() => {
-              const r = ratios[cur.path] ?? (cur.kind === "pdf" ? 0.707 : cur.kind === "video" ? 16 / 9 : undefined);
-              const src = cur.kind === "image" ? previewCache.current.get(cur.path) : undefined;
-              return (
-                <div
-                  key={cur.path}
-                  ref={setCardEl}
-                  className={
-                    "preview-card" +
-                    (leaving ? " exit-left" : "") +
-                    (returning && !leaving ? " undo-from-back" : "")
-                  }
-                  style={{
-                    zIndex: 5,
-                    ["--start-x" as string]: "0px",
-                    ["--start-rot" as string]: "0deg",
-                    ["--undo-x" as string]: "-120%",
-                    ["--undo-y" as string]: "0px",
-                    ["--undo-ms" as string]: "420ms",
-                    ["--enter-rot" as string]: `${-3 + seededOffset(cur.path, 1).rotate * 0.5}deg`,
-                  }}
-                >
+            {cur &&
+              (() => {
+                const r =
+                  ratios[cur.path] ??
+                  (cur.kind === "pdf" ? 0.707 : cur.kind === "video" ? 16 / 9 : undefined);
+                const src =
+                  cur.kind === "image"
+                    ? (frontFull.current.get(cur.path) ?? previewCache.current.get(cur.path))
+                    : undefined;
+                return (
                   <div
-                    className="preview-photo-inner no-resize-anim"
-                    style={r ? { aspectRatio: `${shapeRatio(r)}` } : undefined}
+                    key={cur.path}
+                    ref={setCardEl}
+                    className={
+                      "preview-card" +
+                      (burst ? " is-burst" : "") +
+                      (undoPath === cur.path ? " undo-from-back" : "")
+                    }
+                    style={{
+                      zIndex: STACK_DEPTH + 1,
+                      ["--enter-rot" as string]: `${-3 + seededOffset(cur.path, 1).rotate * 0.5}deg`,
+                    }}
                   >
-                    {cur.kind !== "image" ? (
-                      <BackThumb
-                        kind={cur.kind}
-                        path={cur.path}
-                        name={cur.name}
-                        onRatio={(x) => setRatio(cur.path, x)}
-                      />
-                    ) : src ? (
-                      <img
-                        src={src}
-                        alt={cur.name}
-                        className="preview-img"
-                        draggable={false}
-                        onLoad={(e) => {
-                          const im = e.currentTarget;
-                          if (im.naturalWidth && im.naturalHeight)
-                            setRatio(cur.path, im.naturalWidth / im.naturalHeight);
-                        }}
-                      />
-                    ) : (
-                      <span className="xp-kind">Preview tidak tersedia</span>
-                    )}
+                    <div
+                      className="preview-photo-inner no-resize-anim"
+                      style={r ? { aspectRatio: `${shapeRatio(r)}` } : undefined}
+                    >
+                      {cur.kind !== "image" ? (
+                        <BackThumb kind={cur.kind} path={cur.path} name={cur.name} onRatio={(x) => setRatio(cur.path, x)} />
+                      ) : src ? (
+                        <img
+                          src={src}
+                          alt={cur.name}
+                          className="preview-img"
+                          draggable={false}
+                          onLoad={(e) => {
+                            const im = e.currentTarget;
+                            if (im.naturalWidth && im.naturalHeight)
+                              setRatio(cur.path, im.naturalWidth / im.naturalHeight);
+                          }}
+                        />
+                      ) : (
+                        <span className="xp-kind">Preview tidak tersedia</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
           </div>
 
           {cur && (
@@ -236,16 +327,14 @@ export default function ExportScreen({
               <span className="xp-count">
                 {String(idx + 1).padStart(3, "0")} / {String(n).padStart(3, "0")}
               </span>
-              <span className="xp-cur-name">
-                {(renames[cur.path] ?? splitName(cur.name).base) + splitName(cur.name).ext}
-              </span>
+              <span className="xp-cur-name">{shownName(cur)}</span>
             </div>
           )}
           <div className="xp-nav">
-            <button type="button" className="ghost-btn" onClick={goPrev} disabled={idx <= 0 || leaving}>
+            <button type="button" className="ghost-btn" onClick={() => pressRef.current("prev", false)} disabled={idx <= 0}>
               ‹ Sebelumnya
             </button>
-            <button type="button" className="ghost-btn" onClick={goNext} disabled={idx >= n - 1 || leaving}>
+            <button type="button" className="ghost-btn" onClick={() => pressRef.current("next", false)} disabled={idx >= n - 1}>
               Berikutnya ›
             </button>
           </div>
