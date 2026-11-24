@@ -433,9 +433,23 @@ function App() {
 
   const startSorting = async () => {
     try {
-      const photos = await invoke<PhotoEntry[]>("list_photos", {
+      const listed = await invoke<PhotoEntry[]>("list_photos", {
         folder: sourceFolder,
       });
+      // Urutkan dari file paling baru (tanggal diubah) ke paling lama.
+      let photos = listed;
+      try {
+        const meta = await invoke<{ path: string; modified: number }[]>(
+          "scan_media",
+          { folder: sourceFolder },
+        );
+        const mod = new Map(meta.map((m) => [m.path, m.modified]));
+        photos = [...listed].sort(
+          (a, b) => (mod.get(b.path) ?? 0) - (mod.get(a.path) ?? 0),
+        );
+      } catch (e) {
+        console.warn("Gagal mengurutkan berdasarkan tanggal:", e);
+      }
       if (photos.length === 0) {
         pushToast("Tidak ada foto ditemukan di folder tersebut.");
         return;
