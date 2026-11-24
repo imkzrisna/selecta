@@ -5,11 +5,9 @@ import BackThumb from "../media/BackThumb";
 import { FolderGlyph } from "../ui/Glyphs";
 import { splitName, cleanBase, seededOffset, backCardStyle, shapeRatio } from "../../lib/utils";
 import {
-  NORMAL_EXIT_MS,
   BURST_WINDOW_MS,
   BURST_IDLE_MS,
   MAX_PENDING_BURST,
-  UNDO_BACK_MS,
   burstExitMs,
 } from "../../lib/motion";
 import { flyGhost } from "../../lib/ghost";
@@ -60,7 +58,7 @@ export default function ExportScreen({
   cardRef.current = cardEl;
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [burst, setBurst] = useState(false);
-  const [undoPath, setUndoPath] = useState<string | null>(null);
+  const [enter, setEnter] = useState<{ path: string; kind: "nav-next" | "nav-prev" } | null>(null);
   const [, bumpFull] = useState(0);
   const frontFull = useRef<Map<string, string>>(new Map());
 
@@ -121,7 +119,7 @@ export default function ExportScreen({
     if (dir === "next" && i >= n - 1) return;
     if (dir === "prev" && i <= 0) return;
     gate.current = true;
-    setUndoPath(null);
+    setEnter(null);
     if (fast) {
       streak.current += 1;
       burstRef.current = true;
@@ -134,21 +132,21 @@ export default function ExportScreen({
     } else {
       streak.current = 0;
     }
-    let wait = 120;
-    if (dir === "next") {
-      const ms = fast ? burstExitMs(streak.current) : NORMAL_EXIT_MS.left;
-      const card = cardRef.current;
-      if (card?.parentElement) {
-        flyGhost(card, card.parentElement, { dir: "left", ms, fast, zIndex: STACK_DEPTH + 2 });
-      }
-      idxRef.current = i + 1;
-      setIdx(i + 1);
-    } else {
-      idxRef.current = i - 1;
-      setUndoPath(photos[i - 1].path);
-      setIdx(i - 1);
-      wait = fast ? 110 : UNDO_BACK_MS;
+    const wait = 300;
+    const ms = fast ? burstExitMs(streak.current) : 260;
+    const card = cardRef.current;
+    if (card?.parentElement) {
+      flyGhost(card, card.parentElement, {
+        dir: dir === "next" ? "nav-next" : "nav-prev",
+        ms,
+        fast,
+        zIndex: STACK_DEPTH + 2,
+      });
     }
+    const to = dir === "next" ? i + 1 : i - 1;
+    idxRef.current = to;
+    setEnter({ path: photos[to].path, kind: dir === "next" ? "nav-next" : "nav-prev" });
+    setIdx(to);
     window.setTimeout(() => {
       gate.current = false;
       drain();
@@ -289,7 +287,7 @@ export default function ExportScreen({
                     className={
                       "preview-card" +
                       (burst ? " is-burst" : "") +
-                      (undoPath === cur.path ? " undo-from-back" : "")
+                      (enter && enter.path === cur.path ? ` undo-${enter.kind}` : "")
                     }
                     style={{
                       zIndex: STACK_DEPTH + 1,
