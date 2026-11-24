@@ -2090,7 +2090,7 @@ function App() {
               </div>
 
               <div
-                className={`preview-box${isExiting ? " is-exiting" : ""}${burst ? " is-burst" : ""}`}
+                className={`preview-box${isExiting ? " is-exiting" : ""}${burst ? " is-burst" : ""}${!isExiting && undoAnim?.kind === "from-back" ? " undo-back-active" : ""}`}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}

@@ -4005,3 +4005,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .sorting-screen .preview-card.undo-from-back { animation: none !important; }
 }
+
+/* Undo lewati: kartu depan lama mundur menjadi kartu belakang */
+@keyframes undo-sink-behind {
+  from {
+    transform: translate(0, 0) rotate(0deg) scale(1.12);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.preview-box.undo-back-active .stack-sheet {
+  animation: undo-sink-behind 420ms cubic-bezier(0.2, 0, 0.2, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-box.undo-back-active .stack-sheet { animation: none !important; }
+}
