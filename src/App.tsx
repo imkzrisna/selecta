@@ -2090,7 +2090,7 @@ function App() {
               </div>
 
               <div
-                className={`preview-box${isExiting ? " is-exiting" : ""}${burst ? " is-burst" : ""}${!isExiting && undoAnim?.kind === "from-back" ? " undo-back-active" : ""}`}
+                className={`preview-box${isExiting ? " is-exiting" : ""}${burst ? " is-burst" : ""}${!isExiting && undoAnim?.kind === "from-back" ? " undo-back-active" : ""}`} style={{ ["--undo-ms" as string]: undoAnim?.ms ? `${undoAnim.ms}ms` : "420ms" } as React.CSSProperties}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}

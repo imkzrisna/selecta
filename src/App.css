@@ -4051,3 +4051,26 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .sorting-screen .preview-card.exit-left.is-burst { animation: none !important; }
 }
+
+/* =====================================================
+   Konsistensi: burst dan undo memakai gerak yang sama dengan mode normal,
+   hanya durasinya yang berubah (--burst-ms / --undo-ms)
+   ===================================================== */
+.sorting-screen .preview-card.exit-left.is-burst {
+  transform-origin: 80% 80%;
+  animation: skip-tuck-behind var(--burst-ms, 150ms) cubic-bezier(0.3, 0, 0.2, 1) forwards;
+  animation-delay: 0s;
+  z-index: 30;
+}
+.sorting-screen .preview-card.undo-from-back {
+  transform-origin: 80% 80%;
+  animation: undo-untuck var(--undo-ms, 420ms) cubic-bezier(0.2, 0, 0.2, 1) backwards;
+}
+.preview-box.undo-back-active .stack-sheet {
+  animation: undo-sink-behind var(--undo-ms, 420ms) cubic-bezier(0.2, 0, 0.2, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sorting-screen .preview-card.exit-left.is-burst,
+  .sorting-screen .preview-card.undo-from-back,
+  .preview-box.undo-back-active .stack-sheet { animation: none !important; }
+}
