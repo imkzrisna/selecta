@@ -3893,3 +3893,41 @@ body {
 .review-box .preview-card.undo-from-back.is-burst {
   animation-duration: 170ms, 60ms;
 }
+
+/* ---------- Review: geser carousel (→ berikutnya, ← sebelumnya) ---------- */
+@keyframes nav-out-next {
+  from { transform: translateX(0) scale(1); opacity: 1; }
+  to { transform: translateX(-15%) scale(0.96); opacity: 0; }
+}
+@keyframes nav-out-prev {
+  from { transform: translateX(0) scale(1); opacity: 1; }
+  to { transform: translateX(15%) scale(0.96); opacity: 0; }
+}
+@keyframes nav-in-next {
+  from { transform: translateX(15%) scale(0.96); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes nav-in-prev {
+  from { transform: translateX(-15%) scale(0.96); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+.preview-card.exit-nav-next,
+.preview-card.exit-nav-prev {
+  z-index: 30;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+.preview-card.exit-nav-next { animation: nav-out-next 260ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.preview-card.exit-nav-prev { animation: nav-out-prev 260ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.preview-card.undo-nav-next { animation: nav-in-next 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards; transform-origin: 50% 50%; }
+.preview-card.undo-nav-prev { animation: nav-in-prev 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards; transform-origin: 50% 50%; }
+.preview-card.exit-nav-next.is-burst,
+.preview-card.exit-nav-prev.is-burst { animation-duration: var(--burst-ms, 150ms); }
+.preview-card.undo-nav-next.is-burst,
+.preview-card.undo-nav-prev.is-burst { animation-duration: 160ms; }
+@media (prefers-reduced-motion: reduce) {
+  .preview-card.exit-nav-next,
+  .preview-card.exit-nav-prev,
+  .preview-card.undo-nav-next,
+  .preview-card.undo-nav-prev { animation: none !important; }
+}

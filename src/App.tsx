@@ -1559,7 +1559,7 @@ function App() {
   >(() => {});
   const [reviewUndoAnim, setReviewUndoAnim] = useState<{
     path: string;
-    kind: "from-back" | "from-tray" | "from-below" | "from-above";
+    kind: "from-back" | "from-tray" | "from-below" | "from-above" | "nav-next" | "nav-prev";
   } | null>(null);
 
   const reviewDrain = () => {
@@ -1595,18 +1595,21 @@ function App() {
         ? 340
         : NORMAL_EXIT_MS.left;
     // Mundur (←) tidak menerbangkan kartu: kartu sebelumnya muncul lewat pop-in.
-    if (dir !== "left" && card && box) {
+    if (card && box) {
       flyGhost(card, box, {
-        dir: dir === "right" ? "left" : dir,
+        dir: dir === "right" ? "nav-next" : dir === "left" ? "nav-prev" : dir,
         ms,
         fast,
         zIndex: STACK_DEPTH + 2,
       });
     }
-    if (dir === "right") setReviewIdx(ridx + 1);
-    else if (dir === "left") {
+    if (dir === "right") {
+      const nxt = reviewPending[ridx + 1];
+      if (nxt) setReviewUndoAnim({ path: nxt.path, kind: "nav-next" });
+      setReviewIdx(ridx + 1);
+    } else if (dir === "left") {
       const prev = reviewPending[ridx - 1];
-      if (prev) setReviewUndoAnim({ path: prev.path, kind: "from-back" });
+      if (prev) setReviewUndoAnim({ path: prev.path, kind: "nav-prev" });
       setReviewIdx(ridx - 1);
     }
     else if (dir === "up") reviewActs.current.accept();
@@ -1616,7 +1619,7 @@ function App() {
       reviewDrain();
     };
     if (fast) requestAnimationFrame(() => requestAnimationFrame(release));
-    else window.setTimeout(release, dir === "left" ? UNDO_BACK_MS : 120);
+    else window.setTimeout(release, dir === "left" || dir === "right" ? 300 : 120);
   };
 
   const reviewPress = (dir: "left" | "right" | "down" | "up", repeat: boolean) => {
@@ -1640,7 +1643,7 @@ function App() {
     if (!last || isProcessing) return;
     reviewPend.current = [];
     let path: string | undefined;
-    let kind: "from-back" | "from-tray" | "from-below" | "from-above" = "from-tray";
+    let kind: "from-back" | "from-tray" | "from-below" | "from-above" | "nav-next" | "nav-prev" = "from-tray";
     if (last.type === "back") {
       kind = "from-back";
       path = last.prevOrder.find((x) => !approved.includes(x));
