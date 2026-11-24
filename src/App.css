@@ -3977,3 +3977,31 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .preview-card.exit-left.is-burst { animation: none !important; }
 }
+
+/* Undo lewati: kebalikan skip-tuck-behind (muncul dari belakang, melengkung, naik ke depan) */
+@keyframes undo-untuck {
+  0% {
+    transform: translate(-7%, -7%) rotate(-3deg) scale(0.95);
+    opacity: 0;
+    z-index: 0;
+  }
+  30% { opacity: 1; z-index: 0; }
+  54% { z-index: 0; }
+  55% {
+    transform: translate(-42%, 4%) rotate(-7deg) scale(0.93);
+    opacity: 1;
+    z-index: 30;
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+    z-index: 30;
+  }
+}
+.sorting-screen .preview-card.undo-from-back {
+  transform-origin: 80% 80%;
+  animation: undo-untuck 420ms cubic-bezier(0.2, 0, 0.2, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sorting-screen .preview-card.undo-from-back { animation: none !important; }
+}
