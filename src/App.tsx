@@ -1604,7 +1604,11 @@ function App() {
       });
     }
     if (dir === "right") setReviewIdx(ridx + 1);
-    else if (dir === "left") setReviewIdx(ridx - 1);
+    else if (dir === "left") {
+      const prev = reviewPending[ridx - 1];
+      if (prev) setReviewUndoAnim({ path: prev.path, kind: "from-back" });
+      setReviewIdx(ridx - 1);
+    }
     else if (dir === "up") reviewActs.current.accept();
     else reviewActs.current.eject();
     const release = () => {
@@ -1612,7 +1616,7 @@ function App() {
       reviewDrain();
     };
     if (fast) requestAnimationFrame(() => requestAnimationFrame(release));
-    else window.setTimeout(release, 120);
+    else window.setTimeout(release, dir === "left" ? UNDO_BACK_MS : 120);
   };
 
   const reviewPress = (dir: "left" | "right" | "down" | "up", repeat: boolean) => {

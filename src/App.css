@@ -3888,3 +3888,8 @@ body {
 }
 .xp-rename-input { width: 280px; max-width: 50vw; text-align: right; }
 .xp-rename-ext { font-size: 13px; color: var(--muted); }
+
+/* ---------- Review: ← masuk dari kiri, lebih cepat saat burst ---------- */
+.review-box .preview-card.undo-from-back.is-burst {
+  animation-duration: 170ms, 60ms;
+}
