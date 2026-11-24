@@ -1175,7 +1175,8 @@ function App() {
     (dir: "left" | "right", repeat: boolean) => {
       const now = performance.now();
       const last = dir === "left" ? lastLeftAt : lastRightAt;
-      const isBurst = repeat || now - last.current < BURST_WINDOW_MS;
+      // Burst hanya saat tombol ditahan; tap cepat tetap animasi penuh.
+      const isBurst = repeat;
       last.current = now;
       if (repeat) heldRepeat.current = true;
       if (exitInProgress.current) {
