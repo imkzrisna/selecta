@@ -3931,3 +3931,73 @@ body {
   .preview-card.undo-nav-next,
   .preview-card.undo-nav-prev { animation: none !important; }
 }
+
+/* =====================================================
+   Sorting: lewati menyelip ke belakang, pilih + stempel, naik dengan pegas
+   ===================================================== */
+@keyframes skip-tuck-behind {
+  0% {
+    transform: translate(var(--start-x, 0px), 0) rotate(var(--start-rot, 0deg)) scale(1);
+    opacity: 1;
+    z-index: 30;
+  }
+  45% {
+    transform: translate(-42%, 4%) rotate(-7deg) scale(0.93);
+    opacity: 1;
+    z-index: 30;
+  }
+  46% { z-index: 0; }
+  70% { opacity: 1; }
+  100% {
+    transform: translate(-7%, -7%) rotate(-3deg) scale(0.95);
+    opacity: 0;
+    z-index: 0;
+  }
+}
+.preview-card.exit-left:not(.is-burst) {
+  transform-origin: 80% 80%;
+  animation: skip-tuck-behind 460ms cubic-bezier(0.3, 0, 0.2, 1) forwards;
+}
+
+/* Kartu berikutnya naik dengan sedikit overshoot (durasi tetap 0.38s) */
+.preview-card:not(.exit-left):not(.exit-right):not(.exit-up):not(.exit-down):not(.is-burst):not([class*="undo-"]) {
+  animation-timing-function: cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+/* Stempel keputusan saat tombol keyboard ditekan */
+.sorting-screen .preview-card.is-ghost.exit-left:not(.is-burst)::after,
+.sorting-screen .preview-card.is-ghost.exit-right:not(.is-burst)::after {
+  position: absolute;
+  top: 18px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  background: var(--surface);
+  z-index: 20;
+  animation: stamp-flash 300ms ease-out forwards;
+}
+.sorting-screen .preview-card.is-ghost.exit-left:not(.is-burst)::after {
+  content: "Lewati";
+  left: 18px;
+  color: var(--reject);
+  border: 1px solid var(--reject);
+}
+.sorting-screen .preview-card.is-ghost.exit-right:not(.is-burst)::after {
+  content: "Pilih";
+  right: 18px;
+  color: var(--selected);
+  border: 1px solid var(--selected);
+}
+@keyframes stamp-flash {
+  0% { opacity: 0; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-card.exit-left:not(.is-burst),
+  .sorting-screen .preview-card.is-ghost::after { animation: none !important; }
+}
