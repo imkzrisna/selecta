@@ -4,11 +4,16 @@ type Nat = { w: number; h: number };
 
 // Ukuran target (px) agar foto kecil mengisi kotak preview, dibatasi maxScale.
 // Mengembalikan null jika foto sudah cukup besar (tidak perlu dibesarkan).
-export function useFitUpscale(nat: Nat | null, maxScale: number, watchKey: string) {
+export function useFitUpscale(
+  nat: Nat | null,
+  maxScale: number,
+  watchKey: string,
+  selector = ".preview-box:not(.review-box)",
+) {
   const [box, setBox] = useState<Nat | null>(null);
 
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>(".preview-box:not(.review-box)");
+    const el = document.querySelector<HTMLElement>(selector);
     if (!el) return;
     const read = () => setBox({ w: el.clientWidth, h: el.clientHeight });
     read();

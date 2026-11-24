@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "react";
+import { useFitUpscale } from "../../lib/useFitUpscale";
 import PdfViewer from "../media/PdfViewer";
 import VideoViewer from "../media/VideoViewer";
 import BackThumb from "../media/BackThumb";
@@ -50,6 +52,13 @@ export default function ReviewScreen(props: Props) {
     const behind = list[idx + 1];
     const all = reviewAll;
     const approvedCount = all.length - list.length;
+    const [nat, setNat] = useState<{ path: string; w: number; h: number } | null>(null);
+    const up = useFitUpscale(
+      cur && nat && nat.path === cur.path ? { w: nat.w, h: nat.h } : null,
+      cur?.kind === "image" && !longKindOf(stackAspectRatios[cur.path]) ? 3 : 1,
+      cur?.path ?? "",
+      ".review-box",
+    );
     const setRatio = (r: number) => {
       if (!cur) return;
       setStackAspectRatios((prev) =>
@@ -191,7 +200,7 @@ export default function ReviewScreen(props: Props) {
                         "preview-photo-inner no-resize-anim" +
                         (lk ? ` is-long-${lk}` : "")
                       }
-                      style={shaped ? { aspectRatio: `${shaped}` } : undefined}
+                      style={(up ? { width: up.w, height: up.h, maxWidth: "none", maxHeight: "none", aspectRatio: "auto" } : (shaped ? { aspectRatio: `${shaped}` } : undefined))}
                       onScroll={(e) => {
                         if (!lk) return;
                         const el = e.currentTarget;
@@ -223,12 +232,13 @@ export default function ReviewScreen(props: Props) {
                         <img
                           src={src}
                           alt={cur.name}
-                          className="preview-img"
+                          className="preview-img" style={up ? { width: "100%", height: "100%", objectFit: "contain", imageRendering: up.fit >= 4 ? "pixelated" : undefined } : undefined}
                           draggable={false}
                           onLoad={(e) => {
                             const img = e.currentTarget;
                             if (img.naturalWidth && img.naturalHeight) {
                               setRatio(img.naturalWidth / img.naturalHeight);
+                              setNat({ path: cur.path, w: img.naturalWidth, h: img.naturalHeight });
                             }
                           }}
                         />

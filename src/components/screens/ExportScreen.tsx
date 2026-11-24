@@ -3,7 +3,8 @@ import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "reac
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import BackThumb from "../media/BackThumb";
 import { FolderGlyph } from "../ui/Glyphs";
-import { splitName, cleanBase, seededOffset, backCardStyle, shapeRatio } from "../../lib/utils";
+import { splitName, cleanBase, seededOffset, backCardStyle, shapeRatio, longKindOf } from "../../lib/utils";
+import { useFitUpscale } from "../../lib/useFitUpscale";
 import {
   BURST_WINDOW_MS,
   BURST_IDLE_MS,
@@ -51,8 +52,15 @@ export default function ExportScreen({
   const idxRef = useRef(idx);
   idxRef.current = idx;
   const cur = photos[idx];
+  const [nat, setNat] = useState<{ path: string; w: number; h: number } | null>(null);
 
   const [ratios, setRatios] = useState<Record<string, number>>({});
+  const up = useFitUpscale(
+    cur && nat && nat.path === cur.path ? { w: nat.w, h: nat.h } : null,
+    cur?.kind === "image" && !longKindOf(ratios[cur.path]) ? 3 : 1,
+    cur?.path ?? "",
+    ".xp-box",
+  );
   const [cardEl, setCardEl] = useState<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   cardRef.current = cardEl;
@@ -296,7 +304,7 @@ export default function ExportScreen({
                   >
                     <div
                       className="preview-photo-inner no-resize-anim"
-                      style={r ? { aspectRatio: `${shapeRatio(r)}` } : undefined}
+                      style={(up ? { width: up.w, height: up.h, maxWidth: "none", maxHeight: "none", aspectRatio: "auto" } : (r ? { aspectRatio: `${shapeRatio(r)}` } : undefined))}
                     >
                       {cur.kind !== "image" ? (
                         <BackThumb kind={cur.kind} path={cur.path} name={cur.name} onRatio={(x) => setRatio(cur.path, x)} />
@@ -304,12 +312,13 @@ export default function ExportScreen({
                         <img
                           src={src}
                           alt={cur.name}
-                          className="preview-img"
+                          className="preview-img" style={up ? { width: "100%", height: "100%", objectFit: "contain", imageRendering: up.fit >= 4 ? "pixelated" : undefined } : undefined}
                           draggable={false}
                           onLoad={(e) => {
                             const im = e.currentTarget;
                             if (im.naturalWidth && im.naturalHeight)
                               setRatio(cur.path, im.naturalWidth / im.naturalHeight);
+                              setNat({ path: cur.path, w: im.naturalWidth, h: im.naturalHeight });
                           }}
                         />
                       ) : (
