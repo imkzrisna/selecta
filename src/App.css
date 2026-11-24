@@ -3968,3 +3968,12 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .preview-card.exit-left:not(.is-burst) { animation: none !important; }
 }
+
+/* Burst: versi singkat dari animasi menyelip, durasi mengikuti --burst-ms */
+.preview-card.exit-left.is-burst {
+  transform-origin: 80% 80%;
+  animation: skip-tuck-behind var(--burst-ms, 150ms) linear forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-card.exit-left.is-burst { animation: none !important; }
+}
