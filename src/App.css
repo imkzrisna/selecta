@@ -4356,3 +4356,82 @@ body {
   margin: 0 -2px;
   box-sizing: content-box;
 }
+
+/* =====================================================
+   Smooth pass: GPU layer, easing landai, fade tertunda
+   ===================================================== */
+.stack-sheet {
+  transition:
+    transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.38s ease;
+  backface-visibility: hidden;
+}
+.preview-card,
+.preview-card.is-ghost {
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.preview-card.is-ghost {
+  will-change: transform, opacity;
+}
+
+/* Kartu naik: landai, opacity ikut halus */
+.preview-card:not(.is-ghost):not(.is-burst):not([class*="exit-"]):not([class*="undo-"]) {
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Geser review/ekspor: tetap utuh dulu, memudar di akhir */
+@keyframes nav-out-next {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  45% { opacity: 1; }
+  100% { transform: translate3d(-16%, 0, 0) scale(0.96); opacity: 0; }
+}
+@keyframes nav-out-prev {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  45% { opacity: 1; }
+  100% { transform: translate3d(16%, 0, 0) scale(0.96); opacity: 0; }
+}
+@keyframes nav-in-next {
+  0% { transform: translate3d(16%, 0, 0) scale(0.96); opacity: 0; }
+  55% { opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+}
+@keyframes nav-in-prev {
+  0% { transform: translate3d(-16%, 0, 0) scale(0.96); opacity: 0; }
+  55% { opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+}
+.preview-card.exit-nav-next:not(.is-burst),
+.preview-card.exit-nav-prev:not(.is-burst) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+.preview-card.undo-nav-next:not(.is-burst),
+.preview-card.undo-nav-prev:not(.is-burst) {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ACC ke atas / keluarkan ke bawah: fade tertunda */
+@keyframes exit-to-up {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); opacity: 1; }
+  50% { opacity: 1; }
+  100% { transform: translate3d(0, -115%, 0) rotate(-3deg) scale(0.92); opacity: 0; }
+}
+@keyframes exit-to-down {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); opacity: 1; }
+  50% { opacity: 1; }
+  100% { transform: translate3d(0, 115%, 0) rotate(3deg) scale(0.92); opacity: 0; }
+}
+.preview-card.exit-up:not(.is-burst) {
+  animation: exit-to-up 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.preview-card.exit-down:not(.is-burst) {
+  animation: exit-to-down 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.preview-card.undo-from-above,
+.preview-card.undo-from-below {
+  animation-duration: 440ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
