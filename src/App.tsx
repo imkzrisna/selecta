@@ -10,7 +10,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
-import { CARD_POP_IN_MS, NORMAL_EXIT_MS, BURST_WINDOW_MS, BURST_IDLE_MS, BURST_GATE_MS, MAX_PENDING_BURST, UNDO_BACK_MS, UNDO_TRAY_MS, burstExitMs } from "./lib/motion";
+import { CARD_POP_IN_MS, NORMAL_EXIT_MS, BURST_IDLE_MS, BURST_GATE_MS, MAX_PENDING_BURST, UNDO_BACK_MS, UNDO_TRAY_MS, burstExitMs } from "./lib/motion";
 import { flyGhost } from "./lib/ghost";
 import { useCardPinchZoom } from "./lib/useCardPinchZoom";
 import { useFitUpscale } from "./lib/useFitUpscale";
@@ -1635,13 +1635,13 @@ function App() {
       reviewDrain();
     };
     if (fast) requestAnimationFrame(() => requestAnimationFrame(release));
-    else window.setTimeout(release, dir === "left" || dir === "right" ? 300 : 120);
+    else window.setTimeout(release, 140);
   };
 
   const reviewPress = (dir: "left" | "right" | "down" | "up", repeat: boolean) => {
     const now = performance.now();
     const last = dir === "right" ? lastRightAt : lastLeftAt;
-    const fast = repeat || now - last.current < BURST_WINDOW_MS;
+    const fast = repeat; // burst hanya saat ditahan; tap cepat tetap animasi penuh
     last.current = now;
     if (repeat) heldRepeat.current = true;
     if (exitInProgress.current) {

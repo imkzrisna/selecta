@@ -6,7 +6,6 @@ import { FolderGlyph } from "../ui/Glyphs";
 import { splitName, cleanBase, seededOffset, backCardStyle, shapeRatio, longKindOf } from "../../lib/utils";
 import { useFitUpscale } from "../../lib/useFitUpscale";
 import {
-  BURST_WINDOW_MS,
   BURST_IDLE_MS,
   MAX_PENDING_BURST,
   burstExitMs,
@@ -140,7 +139,7 @@ export default function ExportScreen({
     } else {
       streak.current = 0;
     }
-    const wait = 300;
+    const wait = 140;
     const ms = fast ? burstExitMs(streak.current) : 260;
     const card = cardRef.current;
     if (card?.parentElement) {
@@ -165,7 +164,7 @@ export default function ExportScreen({
 
   const press = (dir: Dir, repeat: boolean) => {
     const now = performance.now();
-    const fast = repeat || now - lastAt.current[dir] < BURST_WINDOW_MS;
+    const fast = repeat; // burst hanya saat ditahan
     lastAt.current[dir] = now;
     if (repeat) held.current = true;
     if (gate.current) {
