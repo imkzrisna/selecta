@@ -4345,3 +4345,14 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .rd-track, .rd-dot, .rd-pill { transition: none !important; }
 }
+
+/* Dot tepi: tanpa pudar, lingkaran tampil penuh */
+.rd-view.is-clipped {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+.rd-view {
+  padding: 0 2px;
+  margin: 0 -2px;
+  box-sizing: content-box;
+}
