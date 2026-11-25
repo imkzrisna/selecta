@@ -317,7 +317,7 @@ export default function ReviewScreen(props: Props) {
                     ((k === 0 && start > 0) || (k === MAX - 1 && end < n));
                   return (
                     <button
-                      key={i === idx ? `${p.path}-cur` : p.path}
+                      key={p.path}
                       type="button"
                       role="tab"
                       aria-selected={i === idx}
@@ -325,7 +325,9 @@ export default function ReviewScreen(props: Props) {
                       className={`review-dot${i === idx ? " is-current" : i < idx ? " is-past" : ""}${edge ? " is-edge" : ""}`}
                       onClick={() => onJumpTo(i)}
                       disabled={isProcessing}
-                    />
+                    >
+                      {i === idx && <span key={idx} className="review-dot-pulse" aria-hidden="true" />}
+                    </button>
                   );
                 })}
                 <button
