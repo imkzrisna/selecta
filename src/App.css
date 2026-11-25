@@ -4265,3 +4265,29 @@ body {
   .review-screen .review-dots .review-dot { animation: none !important; transition: none !important; }
   .review-dot-pulse { display: none; }
 }
+
+/* =====================================================
+   Review: dot hitam, perpindahan landai (tanpa pantulan)
+   ===================================================== */
+.review-screen .review-dots .review-dot {
+  transition:
+    width 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.review-screen .review-dots .review-dot.is-current {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+@keyframes dot-pulse-ink {
+  0% { box-shadow: 0 0 0 0 rgba(24, 24, 27, 0.28); }
+  100% { box-shadow: 0 0 0 8px rgba(24, 24, 27, 0); }
+}
+.review-dot-pulse {
+  animation: dot-pulse-ink 500ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-screen .review-dots .review-dot { transition: none !important; }
+}
