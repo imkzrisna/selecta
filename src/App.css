@@ -4115,3 +4115,57 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .review-screen .review-dots .review-dot { transition: none; }
 }
+
+/* ---------- Review: dot indikator versi lembut + panah arah ---------- */
+.review-screen .review-dots { gap: 6px; }
+.review-screen .review-dots .review-dot {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+  transform: none;
+  transition:
+    width var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.review-screen .review-dots .review-dot.is-past {
+  background: var(--border-strong);
+  border-color: var(--border-strong);
+}
+.review-screen .review-dots .review-dot.is-current {
+  width: 22px;
+  border-radius: 999px;
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: none;
+}
+.review-screen .review-dots .review-dot.is-edge {
+  transform: scale(0.65);
+  opacity: 0.55;
+}
+.review-screen .review-dots .review-dot:hover:not(:disabled):not(.is-current) {
+  border-color: var(--ink-secondary);
+  background: var(--surface-hover);
+}
+.review-screen .review-dots .review-dot-arrow {
+  width: 24px;
+  height: 24px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 18px;
+  line-height: 1;
+}
+.review-screen .review-dots .review-dot-arrow:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.review-screen .review-dots .review-dot-arrow:disabled {
+  opacity: 0.25;
+  cursor: default;
+}

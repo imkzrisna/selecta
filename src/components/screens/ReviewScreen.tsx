@@ -295,6 +295,15 @@ export default function ReviewScreen(props: Props) {
             }
             return (
               <div className="review-dots" role="tablist" aria-label="Posisi foto">
+                <button
+                  type="button"
+                  className="review-dot-arrow"
+                  aria-label="Foto sebelumnya"
+                  onClick={() => reviewPressRef.current("left", false)}
+                  disabled={idx <= 0 || isProcessing}
+                >
+                  ‹
+                </button>
                 {list.slice(start, end).map((p, k) => {
                   const i = start + k;
                   const edge =
@@ -307,12 +316,21 @@ export default function ReviewScreen(props: Props) {
                       role="tab"
                       aria-selected={i === idx}
                       aria-label={`Foto ${i + 1} dari ${n}`}
-                      className={`review-dot${i === idx ? " is-current" : ""}${edge ? " is-edge" : ""}`}
+                      className={`review-dot${i === idx ? " is-current" : i < idx ? " is-past" : ""}${edge ? " is-edge" : ""}`}
                       onClick={() => onJumpTo(i)}
                       disabled={isProcessing}
                     />
                   );
                 })}
+                <button
+                  type="button"
+                  className="review-dot-arrow"
+                  aria-label="Foto berikutnya"
+                  onClick={() => reviewPressRef.current("right", false)}
+                  disabled={idx >= n - 1 || isProcessing}
+                >
+                  ›
+                </button>
               </div>
             );
           })()}
