@@ -1641,7 +1641,9 @@ function App() {
   const reviewLastAccepted = useRef(0);
   const reviewPress = (dir: "left" | "right" | "down" | "up", repeat: boolean) => {
     const now = performance.now();
-    const MIN_GAP = 220; // batas kecepatan antar tekanan (ms)
+    const vertical = dir === "up" || dir === "down";
+    if (vertical && repeat) return; // ACC/keluarkan tidak boleh diulang dengan menahan tombol
+    const MIN_GAP = vertical ? 130 : 220; // batas kecepatan antar tekanan (ms)
     if (now - reviewLastAccepted.current < MIN_GAP) return;
     reviewLastAccepted.current = now;
     repeat = false; // tanpa burst: ditahan = ritme tetap
