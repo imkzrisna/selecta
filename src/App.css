@@ -4169,3 +4169,62 @@ body {
   opacity: 0.25;
   cursor: default;
 }
+
+/* =====================================================
+   Review: animasi dot (pegas, arah geser, denyut)
+   ===================================================== */
+@keyframes dot-grow-next {
+  from { width: 8px; transform-origin: left center; opacity: 0.6; }
+  60% { width: 26px; }
+  to { width: 22px; opacity: 1; }
+}
+@keyframes dot-grow-prev {
+  from { width: 8px; transform-origin: right center; opacity: 0.6; }
+  60% { width: 26px; }
+  to { width: 22px; opacity: 1; }
+}
+@keyframes dot-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(82, 82, 91, 0.35); }
+  100% { box-shadow: 0 0 0 9px rgba(82, 82, 91, 0); }
+}
+@keyframes dot-pop-in {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.review-screen .review-dots .review-dot {
+  transition:
+    width 380ms cubic-bezier(0.34, 1.35, 0.64, 1),
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+  animation: dot-pop-in 260ms cubic-bezier(0.34, 1.35, 0.64, 1) backwards;
+}
+.review-screen .review-dots.dir-next .review-dot.is-current {
+  animation:
+    dot-grow-next 380ms cubic-bezier(0.34, 1.35, 0.64, 1),
+    dot-pulse 520ms ease-out;
+}
+.review-screen .review-dots.dir-prev .review-dot.is-current {
+  animation:
+    dot-grow-prev 380ms cubic-bezier(0.34, 1.35, 0.64, 1),
+    dot-pulse 520ms ease-out;
+}
+.review-screen .review-dots:not(.dir-next):not(.dir-prev) .review-dot.is-current {
+  animation: dot-pulse 520ms ease-out;
+}
+.review-screen .review-dots .review-dot-arrow {
+  transition:
+    transform 160ms cubic-bezier(0.34, 1.35, 0.64, 1),
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    opacity var(--dur-fast) var(--ease);
+}
+.review-screen .review-dots .review-dot-arrow:first-child:hover:not(:disabled) { transform: translateX(-2px); }
+.review-screen .review-dots .review-dot-arrow:last-child:hover:not(:disabled) { transform: translateX(2px); }
+.review-screen .review-dots .review-dot-arrow:active:not(:disabled) { transform: scale(0.88); }
+@media (prefers-reduced-motion: reduce) {
+  .review-screen .review-dots .review-dot,
+  .review-screen .review-dots .review-dot.is-current,
+  .review-screen .review-dots .review-dot-arrow { animation: none !important; transition: none !important; }
+}

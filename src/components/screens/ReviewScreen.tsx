@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "react";
 import { useFitUpscale } from "../../lib/useFitUpscale";
 import PdfViewer from "../media/PdfViewer";
@@ -53,6 +53,12 @@ export default function ReviewScreen(props: Props) {
     const behind = list[idx + 1];
     const all = reviewAll;
     const approvedCount = all.length - list.length;
+    const prevIdx = useRef(reviewIndex);
+    const dirRef = useRef<"next" | "prev" | "">("");
+    if (prevIdx.current !== reviewIndex) {
+      dirRef.current = reviewIndex > prevIdx.current ? "next" : "prev";
+      prevIdx.current = reviewIndex;
+    }
     const [nat, setNat] = useState<{ path: string; w: number; h: number } | null>(null);
     const up = useFitUpscale(
       cur && nat && nat.path === cur.path ? { w: nat.w, h: nat.h } : null,
@@ -294,7 +300,7 @@ export default function ReviewScreen(props: Props) {
               end = start + MAX;
             }
             return (
-              <div className="review-dots" role="tablist" aria-label="Posisi foto">
+              <div className={`review-dots${dirRef.current ? ` dir-${dirRef.current}` : ""}`} role="tablist" aria-label="Posisi foto">
                 <button
                   type="button"
                   className="review-dot-arrow"
@@ -311,7 +317,7 @@ export default function ReviewScreen(props: Props) {
                     ((k === 0 && start > 0) || (k === MAX - 1 && end < n));
                   return (
                     <button
-                      key={p.path}
+                      key={i === idx ? `${p.path}-cur` : p.path}
                       type="button"
                       role="tab"
                       aria-selected={i === idx}
