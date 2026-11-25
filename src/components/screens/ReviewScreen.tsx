@@ -54,6 +54,7 @@ export default function ReviewScreen(props: Props) {
     const all = reviewAll;
     const approvedCount = all.length - list.length;
     const prevIdx = useRef(reviewIndex);
+    const winStart = useRef(0);
     const dirRef = useRef<"next" | "prev" | "">("");
     if (prevIdx.current !== reviewIndex) {
       dirRef.current = reviewIndex > prevIdx.current ? "next" : "prev";
@@ -292,15 +293,18 @@ export default function ReviewScreen(props: Props) {
 
           {list.length > 1 && (() => {
             const MAX = 15;
+            const PITCH = 16;
             const n = list.length;
-            let start = 0;
-            let end = n;
-            if (n > MAX) {
-              start = Math.min(Math.max(0, idx - Math.floor(MAX / 2)), n - MAX);
-              end = start + MAX;
-            }
+            const vis = Math.min(n, MAX);
+            let st = winStart.current;
+            if (idx < st) st = idx;
+            if (idx > st + MAX - 1) st = idx - MAX + 1;
+            st = Math.max(0, Math.min(st, Math.max(0, n - MAX)));
+            winStart.current = st;
+            const trackW = n * PITCH - 8;
+            const x = idx * PITCH;
             return (
-              <div className={`review-dots${dirRef.current ? ` dir-${dirRef.current}` : ""}`} role="tablist" aria-label="Posisi foto">
+              <div className={`review-dots${dirRef.current ? ` dir-${dirRef.current}` : ""}`}>
                 <button
                   type="button"
                   className="review-dot-arrow"
@@ -310,26 +314,36 @@ export default function ReviewScreen(props: Props) {
                 >
                   ‹
                 </button>
-                {list.slice(start, end).map((p, k) => {
-                  const i = start + k;
-                  const edge =
-                    n > MAX &&
-                    ((k === 0 && start > 0) || (k === MAX - 1 && end < n));
-                  return (
-                    <button
-                      key={p.path}
-                      type="button"
-                      role="tab"
-                      aria-selected={i === idx}
-                      aria-label={`Foto ${i + 1} dari ${n}`}
-                      className={`review-dot${i === idx ? " is-current" : i < idx ? " is-past" : ""}${edge ? " is-edge" : ""}`}
-                      onClick={() => onJumpTo(i)}
-                      disabled={isProcessing}
-                    >
-                      
-                    </button>
-                  );
-                })}
+                <div
+                  className={`rd-view${n > MAX ? " is-clipped" : ""}`}
+                  style={{ width: vis * PITCH - 8 }}
+                  role="tablist"
+                  aria-label="Posisi foto"
+                >
+                  <div
+                    className="rd-track"
+                    style={{ width: trackW, transform: `translateX(${-st * PITCH}px)` }}
+                  >
+                    {list.map((p, i) => (
+                      <button
+                        key={p.path}
+                        type="button"
+                        role="tab"
+                        aria-selected={i === idx}
+                        aria-label={`Foto ${i + 1} dari ${n}`}
+                        className={`rd-dot${i < idx ? " is-past" : ""}`}
+                        style={{ left: i * PITCH }}
+                        onClick={() => onJumpTo(i)}
+                        disabled={isProcessing}
+                      />
+                    ))}
+                    <span
+                      className="rd-pill"
+                      aria-hidden="true"
+                      style={{ left: x, right: trackW - x - 8 }}
+                    />
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="review-dot-arrow"
