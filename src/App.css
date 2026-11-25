@@ -4291,3 +4291,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .review-screen .review-dots .review-dot { transition: none !important; }
 }
+
+/* Dot: tanpa denyut / lingkaran transparan */
+.review-dot-pulse { display: none !important; animation: none !important; box-shadow: none !important; }
+.review-screen .review-dots .review-dot.is-current { box-shadow: none !important; animation: none !important; }

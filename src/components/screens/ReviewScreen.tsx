@@ -326,7 +326,7 @@ export default function ReviewScreen(props: Props) {
                       onClick={() => onJumpTo(i)}
                       disabled={isProcessing}
                     >
-                      {i === idx && <span key={idx} className="review-dot-pulse" aria-hidden="true" />}
+                      
                     </button>
                   );
                 })}
