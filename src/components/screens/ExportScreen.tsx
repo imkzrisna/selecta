@@ -162,8 +162,13 @@ export default function ExportScreen({
   const fireRef = useRef(fire);
   fireRef.current = fire;
 
+  const lastAccepted = useRef(0);
   const press = (dir: Dir, repeat: boolean) => {
     const now = performance.now();
+    const MIN_GAP = 220; // batas kecepatan antar tekanan (ms)
+    if (now - lastAccepted.current < MIN_GAP) return;
+    lastAccepted.current = now;
+    repeat = false; // tanpa burst: ditahan = ritme tetap
     const fast = repeat; // burst hanya saat ditahan
     lastAt.current[dir] = now;
     if (repeat) held.current = true;

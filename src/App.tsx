@@ -1638,8 +1638,13 @@ function App() {
     else window.setTimeout(release, 140);
   };
 
+  const reviewLastAccepted = useRef(0);
   const reviewPress = (dir: "left" | "right" | "down" | "up", repeat: boolean) => {
     const now = performance.now();
+    const MIN_GAP = 220; // batas kecepatan antar tekanan (ms)
+    if (now - reviewLastAccepted.current < MIN_GAP) return;
+    reviewLastAccepted.current = now;
+    repeat = false; // tanpa burst: ditahan = ritme tetap
     const last = dir === "right" ? lastRightAt : lastLeftAt;
     const fast = repeat; // burst hanya saat ditahan; tap cepat tetap animasi penuh
     last.current = now;
