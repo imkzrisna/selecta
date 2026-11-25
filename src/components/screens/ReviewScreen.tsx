@@ -23,6 +23,7 @@ type Props = {
   setStage: (s: Stage) => void;
   isProcessing: boolean;
   reviewIndex: number;
+  onJumpTo: (i: number) => void;
   reviewUndoCount: number;
   reviewUndoFlyRef: MutableRefObject<() => void>;
   reviewPressRef: MutableRefObject<(dir: Dir, repeat: boolean) => void>;
@@ -42,7 +43,7 @@ type Props = {
 export default function ReviewScreen(props: Props) {
   const {
     ToastStack, reviewPending, reviewAll, stackAspectRatios, setStackAspectRatios,
-    setStage, isProcessing, reviewIndex, reviewUndoCount, reviewUndoFlyRef, reviewPressRef,
+    setStage, isProcessing, reviewIndex, onJumpTo, reviewUndoCount, reviewUndoFlyRef, reviewPressRef,
     burst, reviewBox, previewCache, frontFull, setReviewCardEl, reviewUndoAnim,
     scrolledPath, setScrolledPath, exitInProgress, setFullViewPhoto, setZoomPhoto,
   } = props;
@@ -283,6 +284,38 @@ export default function ReviewScreen(props: Props) {
             )}
           </div>
 
+          {list.length > 1 && (() => {
+            const MAX = 15;
+            const n = list.length;
+            let start = 0;
+            let end = n;
+            if (n > MAX) {
+              start = Math.min(Math.max(0, idx - Math.floor(MAX / 2)), n - MAX);
+              end = start + MAX;
+            }
+            return (
+              <div className="review-dots" role="tablist" aria-label="Posisi foto">
+                {list.slice(start, end).map((p, k) => {
+                  const i = start + k;
+                  const edge =
+                    n > MAX &&
+                    ((k === 0 && start > 0) || (k === MAX - 1 && end < n));
+                  return (
+                    <button
+                      key={p.path}
+                      type="button"
+                      role="tab"
+                      aria-selected={i === idx}
+                      aria-label={`Foto ${i + 1} dari ${n}`}
+                      className={`review-dot${i === idx ? " is-current" : ""}${edge ? " is-edge" : ""}`}
+                      onClick={() => onJumpTo(i)}
+                      disabled={isProcessing}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })()}
           <div className="controls">
             <button
               type="button"

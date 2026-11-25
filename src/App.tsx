@@ -1848,6 +1848,7 @@ function App() {
         setStage={setStage}
         isProcessing={isProcessing}
         reviewIndex={ridx}
+        onJumpTo={setReviewIdx}
         reviewUndoCount={reviewUndoCount}
         reviewUndoFlyRef={reviewUndoFlyRef}
         reviewPressRef={reviewPressRef}

@@ -4074,3 +4074,44 @@ body {
   .sorting-screen .preview-card.undo-from-back,
   .preview-box.undo-back-active .stack-sheet { animation: none !important; }
 }
+
+/* ---------- Review: indikator posisi (titik) ---------- */
+.review-dots {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-3);
+  min-height: 14px;
+}
+.review-screen .review-dots .review-dot {
+  width: 10px;
+  height: 10px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.review-screen .review-dots .review-dot:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--surface-hover);
+}
+.review-screen .review-dots .review-dot.is-current {
+  background: #000;
+  border-color: #000;
+  transform: scale(1.2);
+}
+.review-screen .review-dots .review-dot.is-edge {
+  transform: scale(0.6);
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-screen .review-dots .review-dot { transition: none; }
+}
