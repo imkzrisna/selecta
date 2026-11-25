@@ -297,8 +297,9 @@ export default function ReviewScreen(props: Props) {
             const n = list.length;
             const vis = Math.min(n, MAX);
             let st = winStart.current;
-            if (idx < st) st = idx;
-            if (idx > st + MAX - 1) st = idx - MAX + 1;
+            const MARGIN = 3;
+            if (idx < st + MARGIN) st = idx - MARGIN;
+            if (idx > st + MAX - 1 - MARGIN) st = idx - (MAX - 1 - MARGIN);
             st = Math.max(0, Math.min(st, Math.max(0, n - MAX)));
             winStart.current = st;
             const trackW = n * PITCH - 8;
