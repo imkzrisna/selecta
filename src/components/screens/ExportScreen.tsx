@@ -139,7 +139,7 @@ export default function ExportScreen({
     } else {
       streak.current = 0;
     }
-    const wait = 140;
+    const wait = 90;
     const ms = fast ? burstExitMs(streak.current) : 260;
     const card = cardRef.current;
     if (card?.parentElement) {
@@ -165,7 +165,7 @@ export default function ExportScreen({
   const lastAccepted = useRef(0);
   const press = (dir: Dir, repeat: boolean) => {
     const now = performance.now();
-    const MIN_GAP = 220; // batas kecepatan antar tekanan (ms)
+    const MIN_GAP = 90; // batas kecepatan antar tekanan (ms)
     if (now - lastAccepted.current < MIN_GAP) return;
     lastAccepted.current = now;
     repeat = false; // tanpa burst: ditahan = ritme tetap
@@ -173,7 +173,7 @@ export default function ExportScreen({
     lastAt.current[dir] = now;
     if (repeat) held.current = true;
     if (gate.current) {
-      if (fast && pend.current.length < MAX_PENDING_BURST) pend.current.push(dir);
+      if (!repeat && pend.current.length < MAX_PENDING_BURST) pend.current.push(dir);
       return;
     }
     fireRef.current(dir, fast);

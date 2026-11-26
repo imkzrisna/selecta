@@ -1635,7 +1635,7 @@ function App() {
       reviewDrain();
     };
     if (fast) requestAnimationFrame(() => requestAnimationFrame(release));
-    else window.setTimeout(release, 140);
+    else window.setTimeout(release, 90);
   };
 
   const reviewLastAccepted = useRef(0);
@@ -1643,7 +1643,7 @@ function App() {
     const now = performance.now();
     const vertical = dir === "up" || dir === "down";
     if (vertical && repeat) return; // ACC/keluarkan tidak boleh diulang dengan menahan tombol
-    const MIN_GAP = vertical ? 130 : 220; // batas kecepatan antar tekanan (ms)
+    const MIN_GAP = vertical ? 130 : 90; // batas kecepatan antar tekanan (ms)
     if (now - reviewLastAccepted.current < MIN_GAP) return;
     reviewLastAccepted.current = now;
     repeat = false; // tanpa burst: ditahan = ritme tetap
@@ -1652,7 +1652,7 @@ function App() {
     last.current = now;
     if (repeat) heldRepeat.current = true;
     if (exitInProgress.current) {
-      if (fast && reviewPend.current.length < MAX_PENDING_BURST)
+      if (!repeat && reviewPend.current.length < MAX_PENDING_BURST)
         reviewPend.current.push(dir);
       return;
     }
