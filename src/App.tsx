@@ -578,15 +578,19 @@ function App() {
       .then((full) => {
         const url = convertFileSrc(full);
         const img = new Image();
-        img.onload = () => {
-          frontFull.current.set(cur.path, url);
-          if (frontFull.current.size > 60) {
-            const k = frontFull.current.keys().next().value;
-            if (k !== undefined) frontFull.current.delete(k);
-          }
-          if (!cancelled) bumpFull();
-        };
         img.src = url;
+        img
+          .decode()
+          .catch(() => {})
+          .then(() => {
+            frontFull.current.set(cur.path, url);
+            decodeHold.current.set("f:" + cur.path, img);
+            if (frontFull.current.size > 60) {
+              const k = frontFull.current.keys().next().value;
+              if (k !== undefined) frontFull.current.delete(k);
+            }
+            if (!cancelled) bumpFull();
+          });
       })
       .catch((e) => console.warn("Gagal memuat file asli:", e));
     return () => {
@@ -626,11 +630,14 @@ function App() {
           .then((full) => {
             const url = convertFileSrc(full);
             const im = new Image();
-            im.onload = () => {
-              frontFull.current.set(p.path, url);
-              bumpFull();
-            };
             im.src = url;
+            im.decode()
+              .catch(() => {})
+              .then(() => {
+                frontFull.current.set(p.path, url);
+                decodeHold.current.set("f:" + p.path, im);
+                bumpFull();
+              });
           })
           .catch(() => {});
       }
@@ -1515,11 +1522,14 @@ function App() {
       .then((full) => {
         const url = convertFileSrc(full);
         const img = new Image();
-        img.onload = () => {
-          frontFull.current.set(c.path, url);
-          if (!cancelled) bumpFull();
-        };
         img.src = url;
+        img
+          .decode()
+          .catch(() => {})
+          .then(() => {
+            frontFull.current.set(c.path, url);
+            if (!cancelled) bumpFull();
+          });
       })
       .catch((e) => console.warn("Gagal memuat file asli:", e));
     return () => {
