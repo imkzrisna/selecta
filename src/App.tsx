@@ -340,6 +340,7 @@ function App() {
   // PDF/video dilewati di sini — ditangani viewer masing-masing, bukan
   // lewat get_preview. ---
   const PREFETCH_CONCURRENCY = 4;
+  const fileSizes = useRef<Map<string, number>>(new Map());
   const prefetchAllImages = useCallback(
     (
       photos: PhotoEntry[],
@@ -352,8 +353,17 @@ function App() {
           !previewCache.current.has(p.path) &&
           !failedPreviews.current.has(p.path),
       );
+      targets.sort(
+        (a, b) =>
+          (fileSizes.current.get(b.path) ?? 0) -
+          (fileSizes.current.get(a.path) ?? 0),
+      );
+      const weightOf = (p: PhotoEntry) =>
+        Math.max(1, fileSizes.current.get(p.path) ?? 1);
+      const totalW = targets.reduce((n, p) => n + weightOf(p), 0);
+      let doneW = 0;
       const total = targets.length;
-      onProgress?.(0, total);
+      onProgress?.(0, totalW);
 
       if (total === 0) {
         return Promise.resolve();
@@ -362,9 +372,10 @@ function App() {
       return new Promise((resolve) => {
         let cursor = 0;
         let settled = 0;
-        const finishOne = () => {
+        const finishOne = (photo: PhotoEntry) => {
           settled += 1;
-          onProgress?.(settled, total);
+          doneW += weightOf(photo);
+          onProgress?.(doneW, totalW);
           if (settled >= total) resolve();
         };
 
@@ -394,7 +405,7 @@ function App() {
             })
             .finally(() => {
               if (myGeneration !== prefetchGeneration.current) return;
-              finishOne();
+              finishOne(photo);
               runNext();
             });
         };
@@ -439,10 +450,11 @@ function App() {
       // Urutkan dari file paling baru (tanggal diubah) ke paling lama.
       let photos = listed;
       try {
-        const meta = await invoke<{ path: string; modified: number }[]>(
+        const meta = await invoke<{ path: string; modified: number; size: number }[]>(
           "scan_media",
           { folder: sourceFolder },
         );
+        fileSizes.current = new Map(meta.map((m) => [m.path, m.size]));
         const mod = new Map(meta.map((m) => [m.path, m.modified]));
         photos = [...listed].sort(
           (a, b) => (mod.get(b.path) ?? 0) - (mod.get(a.path) ?? 0),
