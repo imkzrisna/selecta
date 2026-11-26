@@ -18,6 +18,15 @@ export function flyGhost(
   ghost.style.zIndex = String(zIndex);
   ghost.style.setProperty("--start-x", "0px");
   ghost.style.setProperty("--start-rot", "0deg");
+  if (dir === "nav-next" || dir === "nav-prev") {
+    // Mulai dari pose kartu saat ini (bisa masih setengah jalan masuk saat tap cepat).
+    const cs = getComputedStyle(card);
+    ghost.style.setProperty(
+      "--from-transform",
+      cs.transform && cs.transform !== "none" ? cs.transform : "translate3d(0,0,0)",
+    );
+    ghost.style.setProperty("--from-opacity", cs.opacity || "1");
+  }
   if (fast) {
     ghost.style.setProperty("--burst-ms", `${ms}ms`);
     ghost.style.setProperty("--burst-fade", `${Math.max(30, Math.round(ms / 3))}ms`);
