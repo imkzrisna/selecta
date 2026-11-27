@@ -135,6 +135,43 @@ pub fn trim_thumbs(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, String
     r
 }
 
+/// Pangkas satu folder cache (file terlama dulu) sampai total <= max_bytes.
+/// Hanya menyentuh file langsung di dalam folder itu.
+fn trim_dir_lru(dir: &std::path::Path, max_bytes: u64, report: &mut TrimReport) {
+    let mut files: Vec<(PathBuf, u64, std::time::SystemTime)> = Vec::new();
+    if let Ok(rd) = fs::read_dir(dir) {
+        for e in rd.flatten() {
+            if let Ok(m) = e.metadata() {
+                if !m.is_file() {
+                    continue;
+                }
+                let t = match (m.accessed().ok(), m.modified().ok()) {
+                    (Some(a), Some(b)) => a.max(b),
+                    (Some(a), None) => a,
+                    (None, Some(b)) => b,
+                    _ => std::time::UNIX_EPOCH,
+                };
+                files.push((e.path(), m.len(), t));
+            }
+        }
+    }
+    let mut total: u64 = files.iter().map(|f| f.1).sum();
+    if total <= max_bytes {
+        return;
+    }
+    files.sort_by_key(|f| f.2);
+    for (p, size, _) in files {
+        if total <= max_bytes {
+            break;
+        }
+        if p.starts_with(dir) && fs::remove_file(&p).is_ok() {
+            total = total.saturating_sub(size);
+            report.removed_files += 1;
+            report.freed += size;
+        }
+    }
+}
+
 fn trim_thumbs_inner(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, String> {
     let thumbs = cache_dir(app)?.join("thumbs");
     let mut files: Vec<(PathBuf, u64, std::time::SystemTime)> = Vec::new();
@@ -180,6 +217,14 @@ fn trim_thumbs_inner(app: &AppHandle, max_bytes: u64) -> Result<TrimReport, Stri
             let _ = save_index(app, &index);
         }
     }
+
+    // Versi layar dan file asli hasil konversi: batas 1 GB per folder
+    // (0 jika pengguna meminta bersihkan semua).
+    const BIG_LIMIT: u64 = 1024 * 1024 * 1024;
+    let big_max = if max_bytes == 0 { 0 } else { BIG_LIMIT };
+    let root = cache_dir(app)?;
+    trim_dir_lru(&root.join("screen"), big_max, &mut report);
+    trim_dir_lru(&root.join("full"), big_max, &mut report);
 
     // File sementara sips (>1 jam) di temp dir.
     let tmp = std::env::temp_dir().join("selecta-preview");
