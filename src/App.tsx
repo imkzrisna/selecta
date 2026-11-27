@@ -574,7 +574,7 @@ function App() {
     const cur = visibleQueue[0];
     if (!cur || cur.kind !== "image" || frontFull.current.has(cur.path)) return;
     let cancelled = false;
-    invoke<string>("get_full_image", { path: cur.path })
+    invoke<string>("get_screen_image", { path: cur.path })
       .then((full) => {
         const url = convertFileSrc(full);
         const img = new Image();
@@ -626,7 +626,7 @@ function App() {
         hold("f:" + p.path, frontFull.current.get(p.path));
       // prefetch file asli untuk 2 kartu berikutnya
       if (i < DECODE_FULL_WINDOW && !frontFull.current.has(p.path)) {
-        invoke<string>("get_full_image", { path: p.path })
+        invoke<string>("get_screen_image", { path: p.path })
           .then((full) => {
             const url = convertFileSrc(full);
             const im = new Image();
@@ -1518,7 +1518,7 @@ function App() {
     const c = reviewPending[ridx];
     if (!c || c.kind !== "image" || frontFull.current.has(c.path)) return;
     let cancelled = false;
-    invoke<string>("get_full_image", { path: c.path })
+    invoke<string>("get_screen_image", { path: c.path })
       .then((full) => {
         const url = convertFileSrc(full);
         const img = new Image();

@@ -99,7 +99,7 @@ export default function ExportScreen({
     const c = photos[idx];
     if (!c || c.kind !== "image" || frontFull.current.has(c.path)) return;
     let cancelled = false;
-    invoke<string>("get_full_image", { path: c.path })
+    invoke<string>("get_screen_image", { path: c.path })
       .then((full) => {
         const url = convertFileSrc(full);
         const img = new Image();
