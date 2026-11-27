@@ -4509,3 +4509,34 @@ button.export-go {
   border-color: var(--accent-hover);
 }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Tombol keputusan di bawah kartu ---------- */
+.decision-bar {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  flex-shrink: 0;
+}
+.decision-btn {
+  min-width: 128px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.decision-btn.is-skip:hover:not(:disabled),
+.decision-btn.is-skip:active:not(:disabled) {
+  background: var(--reject-soft);
+  border-color: var(--reject);
+  color: var(--reject);
+}
+.decision-btn.is-pick:hover:not(:disabled),
+.decision-btn.is-pick:active:not(:disabled) {
+  background: var(--selected-soft);
+  border-color: var(--selected);
+  color: var(--selected);
+}

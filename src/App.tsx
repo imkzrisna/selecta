@@ -2490,6 +2490,29 @@ function App() {
 
           {current && <p className="filename mono">{current.name}</p>}
 
+          {current && (
+            <div className="decision-bar">
+              <button
+                type="button"
+                className="decision-btn is-skip"
+                onClick={() => pressDir("left", false)}
+                disabled={isExiting || isProcessing}
+                title="Lewati (←)"
+              >
+                <span aria-hidden="true">←</span> Lewati
+              </button>
+              <button
+                type="button"
+                className="decision-btn is-pick"
+                onClick={() => pressDir("right", false)}
+                disabled={isExiting || isProcessing}
+                title="Pilih (→)"
+              >
+                Pilih <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          )}
+
           {current && (current.kind === "pdf" || current.kind === "video") && (
             <div className="controls">
               <button
