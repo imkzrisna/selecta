@@ -4469,3 +4469,43 @@ button.export-go {
   color: var(--muted);
 }
 .segmented .filter-ico svg { width: 14px; height: 14px; }
+
+/* =====================================================
+   Top bar sorting: tombol utama vs senyap
+   ===================================================== */
+.sorting-screen .top-bar {
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--ink-secondary);
+}
+.sorting-screen .top-bar .stat-value { color: var(--ink); font-weight: 600; }
+.sorting-screen .top-bar-actions { gap: 4px; }
+.sorting-screen .top-bar-actions .ghost-btn {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+.sorting-screen .top-bar-actions .ghost-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.sorting-screen .top-bar-actions .help-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+.sorting-screen .top-bar-actions > button:not(.ghost-btn) {
+  margin-left: 6px;
+  padding: 7px 16px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.sorting-screen .top-bar-actions > button:not(.ghost-btn):hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
