@@ -1,25 +1,48 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 * {
   box-sizing: border-box;
 }
 
 :root {
-  --bg: #f6f6f3;
+  color-scheme: light;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-sunken: #eeeeea;
-  --border: #e2e1da;
-  --border-strong: #cfcec5;
-  --ink: #17171a;
-  --muted: #8c8b84;
-  --accent: #3452ff;
-  --accent-soft: #eef1ff;
-  --reject: #c94b3f;
-  --reject-soft: #fbeeec;
-  --radius: 6px;
+  --surface-secondary: #f8f8f8;
+  --surface-sunken: #f4f4f5;
+  --surface-hover: #eeeef0;
+  --border: #e5e5e7;
+  --border-strong: #d4d4d8;
+  --ink: #18181b;
+  --ink-secondary: #71717a;
+  --muted: #a1a1aa;
+  --accent: #52525b;
+  --accent-hover: #3f3f46;
+  --accent-ink: #ffffff;
+  --accent-soft: #f4f4f5;
+  --selected: #22a06b;
+  --selected-soft: rgba(34, 160, 107, 0.1);
+  --reject: #e35d5b;
+  --reject-soft: rgba(227, 93, 91, 0.1);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.06);
+  --shadow-md: 0 4px 16px rgba(24, 24, 27, 0.08);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --font-sans: "Manrope", -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-sans);
+}
 
-  --font-sans: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+.mono,
+kbd {
+  font-variant-numeric: tabular-nums;
 }
 
 html,
@@ -312,8 +335,8 @@ button.primary {
 }
 
 button.primary:hover:not(:disabled) {
-  background: #2540e0;
-  border-color: #2540e0;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 button:disabled {
@@ -923,7 +946,7 @@ button:disabled {
 }
 
 .tray-toggle:hover:not(:disabled) .tray-count {
-  color: #2540e0;
+  color: var(--accent-hover);
 }
 
 .tray-toggle:focus-visible {
@@ -3231,8 +3254,8 @@ button.export-go {
     /* cahaya utama tepat di belakang kartu */
     radial-gradient(
       ellipse 42% 52% at 50% 52%,
-      rgba(52, 82, 255, 0.10),
-      rgba(52, 82, 255, 0.04) 55%,
+      rgba(82, 82, 91, 0.10),
+      rgba(82, 82, 91, 0.04) 55%,
       transparent 75%
     ),
     /* hangat di sudut kiri atas */

@@ -2248,7 +2248,7 @@ function App() {
                       size="28"
                       stroke="3"
                       speed="0.9"
-                      color="#3452ff"
+                      color="#52525b"
                     />
                     Memuat preview…
                   </div>
