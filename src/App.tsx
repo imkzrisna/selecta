@@ -1841,6 +1841,71 @@ function App() {
 
   const cache = useCacheManager(stage);
 
+  const viewerOverlays = (
+    <>
+      {fullViewPhoto && (
+        <div
+          className="photo-lightbox"
+          onClick={() => {
+            (document.activeElement as HTMLElement | null)?.blur();
+            setFullViewPhoto(null);
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className={`photo-lightbox-card pdf-lightbox-card${fullViewPhoto.kind === "video" ? " video-lightbox-card" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+            style={
+              fullViewPhoto.kind === "video" && fullViewAspectRatio
+                ? ({
+                    "--full-aspect": `${fullViewAspectRatio}`,
+                  } as React.CSSProperties)
+                : undefined
+            }
+          >
+            <button
+              type="button"
+              className="photo-lightbox-close"
+              onClick={() => {
+                (document.activeElement as HTMLElement | null)?.blur();
+                setFullViewPhoto(null);
+              }}
+              aria-label="Tutup"
+            >
+              ×
+            </button>
+            <div className="pdf-lightbox-viewer-wrap">
+              {fullViewPhoto.kind === "pdf" ? (
+                <PdfViewer
+                  path={fullViewPhoto.path}
+                  onDimensionsChange={setFullViewAspectRatio}
+                />
+              ) : (
+                <VideoViewer
+                  path={fullViewPhoto.path}
+                  onDimensionsChange={setFullViewAspectRatio}
+                />
+              )}{" "}
+            </div>
+            <p className="photo-lightbox-caption mono">{fullViewPhoto.name}</p>
+          </div>
+        </div>
+      )}
+
+      {zoomPhoto && (
+        <ImageZoomViewer
+          src={
+            zoomFullSrc ||
+            (previewCache.current.get(zoomPhoto.path) ?? previewSrc)
+          }
+          name={zoomPhoto.name}
+          onClose={() => setZoomPhoto(null)}
+        />
+      )}
+    </>
+  );
+
   if (stage === "setup") {
     return (
       <SetupScreen
@@ -1868,6 +1933,7 @@ function App() {
 
   if (stage === "review") {
     return (
+      <>
       <ReviewScreen
         ToastStack={ToastStack}
         reviewPending={reviewPending}
@@ -1893,6 +1959,8 @@ function App() {
         setFullViewPhoto={setFullViewPhoto}
         setZoomPhoto={setZoomPhoto}
       />
+      {viewerOverlays}
+      </>
     );
   }
 
@@ -2556,66 +2624,7 @@ function App() {
         <ShortcutsModal onClose={() => setShortcutsOpen(false)} />
       )}
 
-      {fullViewPhoto && (
-        <div
-          className="photo-lightbox"
-          onClick={() => {
-            (document.activeElement as HTMLElement | null)?.blur();
-            setFullViewPhoto(null);
-          }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className={`photo-lightbox-card pdf-lightbox-card${fullViewPhoto.kind === "video" ? " video-lightbox-card" : ""}`}
-            onClick={(e) => e.stopPropagation()}
-            style={
-              fullViewPhoto.kind === "video" && fullViewAspectRatio
-                ? ({
-                    "--full-aspect": `${fullViewAspectRatio}`,
-                  } as React.CSSProperties)
-                : undefined
-            }
-          >
-            <button
-              type="button"
-              className="photo-lightbox-close"
-              onClick={() => {
-                (document.activeElement as HTMLElement | null)?.blur();
-                setFullViewPhoto(null);
-              }}
-              aria-label="Tutup"
-            >
-              ×
-            </button>
-            <div className="pdf-lightbox-viewer-wrap">
-              {fullViewPhoto.kind === "pdf" ? (
-                <PdfViewer
-                  path={fullViewPhoto.path}
-                  onDimensionsChange={setFullViewAspectRatio}
-                />
-              ) : (
-                <VideoViewer
-                  path={fullViewPhoto.path}
-                  onDimensionsChange={setFullViewAspectRatio}
-                />
-              )}{" "}
-            </div>
-            <p className="photo-lightbox-caption mono">{fullViewPhoto.name}</p>
-          </div>
-        </div>
-      )}
-
-      {zoomPhoto && (
-        <ImageZoomViewer
-          src={
-            zoomFullSrc ||
-            (previewCache.current.get(zoomPhoto.path) ?? previewSrc)
-          }
-          name={zoomPhoto.name}
-          onClose={() => setZoomPhoto(null)}
-        />
-      )}
+      {viewerOverlays}
 
       {/* Lightbox: a larger look at a photo picked from the tray dropdown. */}
       {viewingPhoto && (
