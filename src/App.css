@@ -4453,3 +4453,41 @@ body {
   0% { transform: translate3d(-10%, 0, 0) scale(0.97); opacity: 0.35; }
   100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
 }
+
+/* ---------- Filter media: segmented control ---------- */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+.segmented .segmented-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+.segmented .segmented-opt:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.segmented .segmented-opt.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.segmented-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.segmented .filter-ico svg { width: 14px; height: 14px; }
