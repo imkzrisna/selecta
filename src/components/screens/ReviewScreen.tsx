@@ -38,6 +38,9 @@ type Props = {
   exitInProgress: MutableRefObject<boolean>;
   setFullViewPhoto: (p: PhotoEntry | null) => void;
   setZoomPhoto: (p: PhotoEntry | null) => void;
+  pinchRef: (el: HTMLElement | null) => void;
+  pinchZoomed: boolean;
+  pinchReset: () => void;
 };
 
 export default function ReviewScreen(props: Props) {
@@ -46,6 +49,7 @@ export default function ReviewScreen(props: Props) {
     setStage, isProcessing, reviewIndex, onJumpTo, reviewUndoCount, reviewUndoFlyRef, reviewPressRef,
     burst, reviewBox, previewCache, frontFull, setReviewCardEl, reviewUndoAnim,
     scrolledPath, setScrolledPath, exitInProgress, setFullViewPhoto, setZoomPhoto,
+    pinchRef, pinchZoomed, pinchReset,
   } = props;
     const list = reviewPending;
     const idx = Math.min(reviewIndex, Math.max(0, list.length - 1));
@@ -206,9 +210,10 @@ export default function ReviewScreen(props: Props) {
                     <div
                       className={
                         "preview-photo-inner no-resize-anim" +
-                        (lk ? ` is-long-${lk}` : "")
+                        (lk ? ` is-long-${lk}` : "") +
+                        (pinchZoomed ? " is-zoomed" : "")
                       }
-                      style={(up ? { width: up.w, height: up.h, maxWidth: "none", maxHeight: "none", aspectRatio: "auto" } : (shaped ? { aspectRatio: `${shaped}` } : undefined))}
+                      ref={pinchRef} style={(up ? { width: up.w, height: up.h, maxWidth: "none", maxHeight: "none", aspectRatio: "auto" } : (shaped ? { aspectRatio: `${shaped}` } : undefined))}
                       onScroll={(e) => {
                         if (!lk) return;
                         const el = e.currentTarget;
@@ -218,6 +223,10 @@ export default function ReviewScreen(props: Props) {
                           setScrolledPath(cur.path);
                       }}
                       onClick={() => {
+                        if (pinchZoomed) {
+                          pinchReset();
+                          return;
+                        }
                         if (exitInProgress.current) return;
                         if (cur.kind === "pdf" || cur.kind === "video")
                           setFullViewPhoto(cur);

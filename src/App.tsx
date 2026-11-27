@@ -1821,14 +1821,24 @@ function App() {
   const pinchCur = visibleQueue[0];
   const pinchRatio =
     (pinchCur && stackAspectRatios[pinchCur.path]) || currentAspectRatio;
+  const reviewCur = reviewPending[ridx];
+  const reviewRatio = reviewCur ? stackAspectRatios[reviewCur.path] : undefined;
+  const pinchOn =
+    stage === "sorting"
+      ? pinchCur?.kind === "image" &&
+        !longKindOf(pinchRatio) &&
+        exitDir === null &&
+        !zoomPhoto &&
+        !fullViewPhoto
+      : stage === "review"
+        ? reviewCur?.kind === "image" &&
+          !longKindOf(reviewRatio) &&
+          !zoomPhoto &&
+          !fullViewPhoto
+        : false;
   const pinch = useCardPinchZoom(
-    stage === "sorting" &&
-      pinchCur?.kind === "image" &&
-      !longKindOf(pinchRatio) &&
-      exitDir === null &&
-      !zoomPhoto &&
-      !fullViewPhoto,
-    pinchCur?.path,
+    pinchOn,
+    stage === "review" ? reviewCur?.path : pinchCur?.path,
   );
 
   const upscale = useFitUpscale(
@@ -1958,6 +1968,9 @@ function App() {
         exitInProgress={exitInProgress}
         setFullViewPhoto={setFullViewPhoto}
         setZoomPhoto={setZoomPhoto}
+        pinchRef={pinch.setEl}
+        pinchZoomed={pinch.zoomed}
+        pinchReset={pinch.reset}
       />
       {viewerOverlays}
       </>
