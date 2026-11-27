@@ -96,6 +96,7 @@ pub struct CacheSizeReport {
     pub total: u64,
     pub thumbs: u64,
     pub full: u64,
+    pub screen: u64,
     pub sessions: u64,
     pub export_logs: u64,
 }
@@ -106,6 +107,7 @@ pub fn size_report(app: &AppHandle) -> Result<CacheSizeReport, String> {
         total: dir_size(&root),
         thumbs: dir_size(&root.join("thumbs")),
         full: dir_size(&root.join("full")),
+        screen: dir_size(&root.join("screen")),
         sessions: dir_size(&root.join("sessions")),
         export_logs: dir_size(&root.join("export-logs")),
     })
