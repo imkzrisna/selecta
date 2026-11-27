@@ -708,6 +708,85 @@ fn undo_last_export(app: AppHandle) -> Result<UndoResult, String> {
 // 5. Gambar resolusi penuh untuk mode zoom (tanpa penurunan kualitas).
 //    Format yang dipahami WebView dipakai langsung; selebihnya dikonversi
 //    ke PNG lossless dan di-cache.
+/// Versi "layar" untuk foto beresolusi tinggi: sisi terpanjang max 2560px,
+/// disimpan di cache/screen. Foto yang sudah kecil memakai get_full_image.
+/// File asli tidak pernah ditimpa (sips menulis ke --out).
+#[tauri::command]
+fn get_screen_image(path: String, app: AppHandle) -> Result<String, String> {
+    const SCREEN_MAX: u64 = 2560;
+    let p = Path::new(&path);
+    let meta = fs::metadata(p).map_err(|e| e.to_string())?;
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|m| m.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let ext = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let out_ext = if ext == "png" { "png" } else { "jpg" };
+    let dir = cache::cache_dir(&app)?.join("screen");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let out = dir.join(format!(
+        "{}_{}_{}_{}.{}",
+        cache::hash_path(&path),
+        meta.len(),
+        modified,
+        SCREEN_MAX,
+        out_ext
+    ));
+    if out.exists() {
+        return Ok(out.to_string_lossy().to_string());
+    }
+
+    // Baca dimensi lewat sips.
+    let info = Command::new("sips")
+        .args(["-g", "pixelWidth", "-g", "pixelHeight"])
+        .arg(&path)
+        .output()
+        .map_err(|e| format!("Gagal menjalankan sips: {}", e))?;
+    let text = String::from_utf8_lossy(&info.stdout);
+    let read = |key: &str| -> u64 {
+        text.lines()
+            .find(|l| l.trim_start().starts_with(key))
+            .and_then(|l| l.split(':').nth(1))
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .unwrap_or(0)
+    };
+    let longest = read("pixelWidth").max(read("pixelHeight"));
+    if longest == 0 || longest <= SCREEN_MAX {
+        return get_full_image(path, app);
+    }
+
+    let tmp = dir.join(format!(
+        "{}.part.{}",
+        out.file_stem().and_then(|s| s.to_str()).unwrap_or("x"),
+        out_ext
+    ));
+    let mut cmd = Command::new("sips");
+    cmd.args(["-Z", &SCREEN_MAX.to_string()]);
+    if out_ext == "png" {
+        cmd.args(["-s", "format", "png"]);
+    } else {
+        cmd.args(["-s", "format", "jpeg", "-s", "formatOptions", "90"]);
+    }
+    let res = cmd
+        .arg(&path)
+        .arg("--out")
+        .arg(&tmp)
+        .output()
+        .map_err(|e| format!("Gagal menjalankan sips: {}", e))?;
+    if !res.status.success() {
+        let _ = fs::remove_file(&tmp);
+        return Err(String::from_utf8_lossy(&res.stderr).to_string());
+    }
+    fs::rename(&tmp, &out).map_err(|e| e.to_string())?;
+    Ok(out.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn get_full_image(path: String, app: AppHandle) -> Result<String, String> {
     let p = Path::new(&path);
@@ -813,6 +892,7 @@ pub fn run() {
             load_session,
             clear_session,
             get_full_image,
+            get_screen_image,
             get_cache_size,
             trim_cache
         ])
